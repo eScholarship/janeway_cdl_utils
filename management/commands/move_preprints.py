@@ -36,16 +36,14 @@ class Command(BaseCommand):
                 )
             )
 
-        query1 = (
+        update_preprints = (
             "update janeway.repository_preprint set owner_id={} where owner_id={};".format(
                 active_user.id, proxy_user.id
             )
         )
-        query2 = "delete from core_account where id={};".format(proxy_user.id)
+        delete_proxy = "delete from core_account where id={};".format(proxy_user.id)
 
-        self.stdout.write(self.style.SUCCESS(query1))
-        self.stdout.write(self.style.SUCCESS(query2))
         with connection.cursor() as cursor:
-            cursor.execute(query1)
-            cursor.execute(query2)
+            cursor.execute(update_preprints)
+            cursor.execute(delete_proxy)
             cursor.fetchall()
