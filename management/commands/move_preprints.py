@@ -3,6 +3,15 @@ from django.db import connection
 
 from core.models import Account
 
+# https://stackoverflow.com/a/39257511/1763984
+def boolean_input(question, default=None):
+    result = input("%s " % question)
+    if not result and default is not None:
+        return default
+    while len(result) < 1 or result[0].lower() not in "yn":
+        result = input("Please answer yes or no: ")
+    return result[0].lower() == "y"
+
 
 class Command(BaseCommand):
     help = "move preprints from a proxy account to a new account"
@@ -17,6 +26,7 @@ class Command(BaseCommand):
         active_user = Account.objects.get(email=options["active_user"])
         proxy_user = Account.objects.get(email=options["proxy_user"])
 
+        # sanity checks
         if proxy_user == active_user:
             raise CommandError(
                 "active_user and proxy_user have the same id, nothing to do"
@@ -36,6 +46,22 @@ class Command(BaseCommand):
                 )
             )
 
+        # echo what will happen, and ask the operator to okay
+
+        prompt = """active_user
+	{} ({})
+will become the owner of preprints from the proxy user
+	{} ({})
+Are you sure? (yes/no)
+""".format(
+            active_user.full_name(),
+            active_user.email,
+            proxy_user.full_name(),
+            proxy_user.email,
+        )
+        if not boolean_input(prompt):
+            raise CommandError("preprint move aborted")
+
         update_preprints = (
             "update janeway.repository_preprint set owner_id={} where owner_id={};".format(
                 active_user.id, proxy_user.id
@@ -47,3 +73,4 @@ class Command(BaseCommand):
             cursor.execute(update_preprints)
             cursor.execute(delete_proxy)
             cursor.fetchall()
+        self.stdout.write(self.style.SUCCESS("✅ process complete"))
