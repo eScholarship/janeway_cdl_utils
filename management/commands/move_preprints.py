@@ -62,10 +62,8 @@ Are you sure? (yes/no)
         if not boolean_input(prompt):
             raise CommandError("preprint move aborted")
 
-        update_preprints = (
-            "update janeway.repository_preprint set owner_id={} where owner_id={};".format(
-                active_user.id, proxy_user.id
-            )
+        update_preprints = "update janeway.repository_preprint set owner_id={} where owner_id={};".format(
+            active_user.id, proxy_user.id
         )
         delete_proxy = "delete from core_account where id={};".format(proxy_user.id)
 

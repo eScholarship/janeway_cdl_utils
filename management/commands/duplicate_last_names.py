@@ -24,6 +24,6 @@ class Command(BaseCommand):
         with connection.cursor() as cursor:
             cursor.execute(SQL)
             columns = [col[0] for col in cursor.description]
-            print(','.join(columns))
+            print(",".join(columns))
             for line in cursor.fetchall():
-                print(','.join(map(str,line)))
+                print(",".join(map(str, line)))
