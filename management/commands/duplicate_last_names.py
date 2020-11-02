@@ -17,7 +17,7 @@ ORDER BY last_name;
 
 
 class Command(BaseCommand):
-    help = "product report of duplicate last names"
+    help = "generates a report of duplicate last names on stdout"
 
     def handle(self, *args, **options):
 
