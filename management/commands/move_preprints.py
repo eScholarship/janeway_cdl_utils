@@ -65,10 +65,14 @@ Are you sure? (yes/no)
         update_preprints = "update janeway.repository_preprint set owner_id={} where owner_id={};".format(
             active_user.id, proxy_user.id
         )
+        update_authors = "update janeway.repository_author set email_address={} where email_address={}".format(
+            active_user.email, proxy_user.email
+        )
         delete_proxy = "delete from core_account where id={};".format(proxy_user.id)
 
         with connection.cursor() as cursor:
             cursor.execute(update_preprints)
+            cursor.execute(update_authors)
             cursor.execute(delete_proxy)
             cursor.fetchall()
         self.stdout.write(self.style.SUCCESS("✅ process complete"))
