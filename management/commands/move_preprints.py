@@ -1,7 +1,9 @@
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
+from django.forms.models import model_to_dict
 
 from core.models import Account
+from repository.models import Author, PreprintAuthor
 
 # https://stackoverflow.com/a/39257511/1763984
 def boolean_input(question, default=None):
@@ -13,6 +15,30 @@ def boolean_input(question, default=None):
     return result[0].lower() == "y"
 
 
+def merge_author_metadata(active_author_dict, proxy_author_dict):
+    """ merge metadata, taking from the active author metadata first, then filling in from the proxy author """
+    # there has got to be a more pretty way to do this?
+    return {
+        "affiliation": active_author_dict["affiliation"]
+        if active_author_dict["affiliation"]
+        else proxy_author_dict["affiliation"],
+        "email_address": active_author_dict["email_address"]
+        if active_author_dict["email_address"]
+        else proxy_author_dict["email_address"],
+        "first_name": active_author_dict["first_name"]
+        if active_author_dict["first_name"]
+        else proxy_author_dict["first_name"],
+        "last_name": active_author_dict["last_name"]
+        if active_author_dict["last_name"]
+        else proxy_author_dict["last_name"],
+        "middle_name": active_author_dict["middle_name"]
+        if active_author_dict["middle_name"]
+        else proxy_author_dict["middle_name"],
+        "orcid": active_author_dict["affiliation"]
+        if active_author_dict["orcid"]
+        else proxy_author_dict["orcid"],
+    }
+
 class Command(BaseCommand):
     help = "move preprints from a proxy account to a new account"
 
@@ -23,6 +49,15 @@ class Command(BaseCommand):
         parser.add_argument("proxy_user", help="`email` of old proxy account", type=str)
 
     def handle(self, *args, **options):
+        if not Account.objects.filter(email=options["active_user"]).exists():
+            raise CommandError(
+                "active_user does not exist"
+            )
+        if not Account.objects.filter(email=options["proxy_user"]).exists():
+            raise CommandError(
+                "proxy_user does not exist"
+            )
+
         active_user = Account.objects.get(email=options["active_user"])
         proxy_user = Account.objects.get(email=options["proxy_user"])
 
@@ -46,33 +81,62 @@ class Command(BaseCommand):
                 )
             )
 
-        # echo what will happen, and ask the operator to okay
+        # sql for moving the preprints
+        update_preprints = "update janeway.repository_preprint set owner_id={} where owner_id={};".format(
+            active_user.id, proxy_user.id
+        )
+        delete_proxy = "delete from core_account where id={};".format(proxy_user.id)
 
+
+        # working on the author metadata now
+        if not Author.objects.filter(email_address=options["active_user"]).exists():
+            # the new email address does not already have an associated author entry
+            update_authors = "update janeway.repository_author set email_address='{}' where email_address='{}';".format(
+                active_user.email, proxy_user.email
+            )
+        else:
+            # two author metadata records need to be merged
+            update_authors = None
+            active_author = Author.objects.get(email_address=options["active_user"])
+            proxy_author = Author.objects.get(email_address=options["proxy_user"])
+            new_author_dict = merge_author_metadata(model_to_dict(active_author), model_to_dict(proxy_author))
+
+
+        # echo what will happen, and ask the operator to okay
         prompt = """active_user
 	{} ({})
 will become the owner of preprints from the proxy user
 	{} ({})
-Are you sure? (yes/no)
 """.format(
             active_user.full_name(),
             active_user.email,
             proxy_user.full_name(),
             proxy_user.email,
         )
-        if not boolean_input(prompt):
+        self.stdout.write(self.style.NOTICE(prompt))
+
+        if update_authors:
+            self.stdout.write(self.style.NOTICE("email will be updated in author metadata"))
+        else:
+            self.stdout.write(self.style.NOTICE("author metadata for active_user and proxy_user will be merged"))
+            self.stdout.write(str(new_author_dict))
+
+        if not boolean_input("Are you sure? (yes/no)"):
             raise CommandError("preprint move aborted")
 
-        update_preprints = "update janeway.repository_preprint set owner_id={} where owner_id={};".format(
-            active_user.id, proxy_user.id
-        )
-        update_authors = "update janeway.repository_author set email_address='{}' where email_address='{}';".format(
-            active_user.email, proxy_user.email
-        )
-        delete_proxy = "delete from core_account where id={};".format(proxy_user.id)
+        # merge authors as needed
+        if update_authors is None:
+            Author.objects.filter(pk=active_author.pk).update(**new_author_dict)
+            PreprintAuthor.objects.filter(author=proxy_author).update(author=active_author)
+            proxy_author.delete()
 
+        # run raw SQL with a cursor
         with connection.cursor() as cursor:
             cursor.execute(update_preprints)
-            cursor.execute(update_authors)
+            if update_authors is not None:
+                cursor.execute(update_authors)
             cursor.execute(delete_proxy)
             cursor.fetchall()
+
+        # done!
         self.stdout.write(self.style.SUCCESS("✅ process complete"))
