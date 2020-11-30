@@ -34,7 +34,7 @@ def merge_author_metadata(active_author_dict, proxy_author_dict):
         "middle_name": active_author_dict["middle_name"]
         if active_author_dict["middle_name"]
         else proxy_author_dict["middle_name"],
-        "orcid": active_author_dict["affiliation"]
+        "orcid": active_author_dict["orcid"]
         if active_author_dict["orcid"]
         else proxy_author_dict["orcid"],
     }
