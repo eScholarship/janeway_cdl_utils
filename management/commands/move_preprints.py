@@ -123,12 +123,14 @@ will become the owner of preprints from the proxy user
 
         if not boolean_input("Are you sure? (yes/no)"):
             raise CommandError("preprint move aborted")
-
+        
         # merge authors as needed
         if update_authors is None:
             Author.objects.filter(pk=active_author.pk).update(**new_author_dict)
             PreprintAuthor.objects.filter(author=proxy_author).update(author=active_author)
             proxy_author.delete()
+
+        PreprintAuthor.objects.filter(account=proxy_user).update(account=active_user)
 
         # run raw SQL with a cursor
         with connection.cursor() as cursor:
