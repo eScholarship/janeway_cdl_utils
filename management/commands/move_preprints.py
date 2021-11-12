@@ -130,6 +130,8 @@ will become the owner of preprints from the proxy user
             PreprintAuthor.objects.filter(author=proxy_author).update(author=active_author)
             proxy_author.delete()
 
+        PreprintAuthor.objects.filter(account=proxy_user).update(account=active_user)
+
         # run raw SQL with a cursor
         with connection.cursor() as cursor:
             cursor.execute(update_preprints)
