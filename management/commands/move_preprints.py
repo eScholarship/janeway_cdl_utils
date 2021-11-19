@@ -74,13 +74,6 @@ class Command(BaseCommand):
                 )
             )
 
-        if proxy_user.is_active is True:
-            raise CommandError(
-                "proxy_user {} must not have an active account".format(
-                    options["proxy_user"]
-                )
-            )
-
         # sql for moving the preprints
         update_preprints = "update janeway.repository_preprint set owner_id={} where owner_id={};".format(
             active_user.id, proxy_user.id
@@ -115,6 +108,10 @@ will become the owner of preprints from the proxy user
         )
         self.stdout.write(self.style.NOTICE(prompt))
 
+        if proxy_user.is_active is True:
+            self.stdout.write(self.style.NOTICE("{} ({}) is active and will be deleted\n".format(proxy_user.full_name(),
+                                                                                                 proxy_user.email)))
+
         if update_authors:
             self.stdout.write(self.style.NOTICE("email will be updated in author metadata"))
         else:
@@ -130,7 +127,11 @@ will become the owner of preprints from the proxy user
             PreprintAuthor.objects.filter(author=proxy_author).update(author=active_author)
             proxy_author.delete()
 
-        PreprintAuthor.objects.filter(account=proxy_user).update(account=active_user)
+        for pa in PreprintAuthor.objects.filter(account=proxy_user):
+            if PreprintAuthor.objects.filter(preprint=pa.preprint, account=active_user).exists():
+                pa.delete()
+            else:
+                pa.update(account=active_user)
 
         # run raw SQL with a cursor
         with connection.cursor() as cursor:
