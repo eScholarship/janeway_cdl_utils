@@ -131,7 +131,8 @@ will become the owner of preprints from the proxy user
             if PreprintAuthor.objects.filter(preprint=pa.preprint, account=active_user).exists():
                 pa.delete()
             else:
-                pa.update(account=active_user)
+                pa.account = active_user
+                pa.save()
 
         # run raw SQL with a cursor
         with connection.cursor() as cursor:
