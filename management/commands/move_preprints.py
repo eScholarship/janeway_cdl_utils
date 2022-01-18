@@ -82,18 +82,20 @@ class Command(BaseCommand):
 
 
         # working on the author metadata now
-        if not Author.objects.filter(email_address=options["active_user"]).exists():
-            # the new email address does not already have an associated author entry
-            update_authors = "update janeway.repository_author set email_address='{}' where email_address='{}';".format(
-                active_user.email, proxy_user.email
-            )
-        else:
-            # two author metadata records need to be merged
-            update_authors = None
-            active_author = Author.objects.get(email_address=options["active_user"])
-            proxy_author = Author.objects.get(email_address=options["proxy_user"])
-            new_author_dict = merge_author_metadata(model_to_dict(active_author), model_to_dict(proxy_author))
 
+        update_authors = None
+        proxy_author = None
+        if Author.objects.filter(email_address=options["proxy_user"]).exists():
+            if Author.objects.filter(email_address=options["active_user"]).exists():
+                # two author metadata records need to be merged
+                active_author = Author.objects.get(email_address=options["active_user"])
+                proxy_author = Author.objects.get(email_address=options["proxy_user"])
+                new_author_dict = merge_author_metadata(model_to_dict(active_author), model_to_dict(proxy_author))
+            else:
+                # the new email address does not already have an associated author entry
+                update_authors = "update janeway.repository_author set email_address='{}' where email_address='{}';".format(
+                    active_user.email, proxy_user.email
+                )
 
         # echo what will happen, and ask the operator to okay
         prompt = """active_user
@@ -114,7 +116,7 @@ will become the owner of preprints from the proxy user
 
         if update_authors:
             self.stdout.write(self.style.NOTICE("email will be updated in author metadata"))
-        else:
+        elif not proxy_author is None:
             self.stdout.write(self.style.NOTICE("author metadata for active_user and proxy_user will be merged"))
             self.stdout.write(str(new_author_dict))
 
@@ -122,7 +124,7 @@ will become the owner of preprints from the proxy user
             raise CommandError("preprint move aborted")
 
         # merge authors as needed
-        if update_authors is None:
+        if update_authors is None and not proxy_author is None:
             Author.objects.filter(pk=active_author.pk).update(**new_author_dict)
             PreprintAuthor.objects.filter(author=proxy_author).update(author=active_author)
             proxy_author.delete()
