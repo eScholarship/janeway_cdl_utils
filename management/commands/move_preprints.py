@@ -4,6 +4,7 @@ from django.forms.models import model_to_dict
 
 from core.models import Account
 from repository.models import Author, PreprintAuthor
+from utils.models import LogEntry
 
 # https://stackoverflow.com/a/39257511/1763984
 def boolean_input(question, default=None):
@@ -78,8 +79,6 @@ class Command(BaseCommand):
         update_preprints = "update janeway.repository_preprint set owner_id={} where owner_id={};".format(
             active_user.id, proxy_user.id
         )
-        delete_proxy = "delete from core_account where id={};".format(proxy_user.id)
-
 
         # working on the author metadata now
 
@@ -136,13 +135,16 @@ will become the owner of preprints from the proxy user
                 pa.account = active_user
                 pa.save()
 
+        LogEntry.objects.filter(actor=proxy_user).update(actor=active_user)
+
         # run raw SQL with a cursor
         with connection.cursor() as cursor:
             cursor.execute(update_preprints)
             if update_authors is not None:
                 cursor.execute(update_authors)
-            cursor.execute(delete_proxy)
             cursor.fetchall()
+
+        proxy_user.delete()
 
         # done!
         self.stdout.write(self.style.SUCCESS("✅ process complete"))
