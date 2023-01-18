@@ -61,9 +61,9 @@ class Command(BaseCommand):
         global NUMD_ID
 
         # TBD - fix this check
-        #repo = repository_models.Repository.objects.get()
-        #REPO_ID = repo.id
-        #PRESS_ID = repo.press_id
+        repo = repository_models.Repository.objects.get(name='EcoEvoRxiv')
+        REPO_ID = repo.id
+        PRESS_ID = repo.press_id
         COI_ID = repository_models.RepositoryField.objects.get_or_create(name='conflict_of_interest_statement', input_type='text', defaults={'required':0, 'order':1, 'display':0, 'repository_id':REPO_ID })[0].id
         NODATA_ID = repository_models.RepositoryField.objects.get_or_create(name='why_no_data', input_type='text', defaults={'required':0, 'order':2, 'display':0, 'repository_id':REPO_ID })[0].id
         NUMD_ID = repository_models.RepositoryField.objects.get_or_create(name='num_downloads', input_type='text', defaults={'required':0, 'order':3, 'display':0, 'repository_id':REPO_ID })[0].id
@@ -77,7 +77,8 @@ class OSF:
     url_provides = "https://api.osf.io/v2/preprint_providers"
 
     eer_search = "https://api.osf.io/v2/preprints/?filter[provider]=ecoevorxiv"
-    #https://api.osf.io/v2/preprints/?filter[provider]=eartharxiv&filter[date_created][gte]=2020-05-30
+    #https://api.osf.io/v2/preprints/?filter[provider]=ecoevorxiv&filter[date_created][gte]=2020-05-30
+    #"https://api.osf.io/v2/preprints/?filter[provider]=ecoevorxiv"
 
     headers = {'Content-Type': 'application/json',
              'Authorization': 'Bearer {0}'.format(django_settings.OSF_TOKEN)}
@@ -172,7 +173,12 @@ class Authors:
         print(data)
         # get subject out of attributes
         for i in range(len(data['data'])):
-            self.arr.append(authorItem(data['data'][i]))
+            # data['embeds']['users']['data']['id']
+            # skip the authors where data is not availalbe
+            if 'embeds' in data['data'][i] and 'users' in data['data'][i]['embeds'] and 'data' in data['data'][i]['embeds']['users']:
+                self.arr.append(authorItem(data['data'][i]))
+            else:
+                print("SKIPPING Author - Missing data")
         self.saveData(pp)
 
     def saveData(self, pp):
@@ -242,7 +248,7 @@ class EarthItem:
         print("extract key info here")
         self.osfId=data['id']
         self.type=data['type'] 
-        self.pp_doi=data['links']['preprint_doi']
+        self.pp_doi=data['links']['preprint_doi'].split("doi.org/")[1]
         #self.attr=json.dumps(data['attributes']).replace('\'','')
         #self.rels=json.dumps(data['relationships']).replace('\'','')
         self.attr=data['attributes']
@@ -298,12 +304,15 @@ class Article:
         
             self.fillData(eItem)
             self.saveExtras()
+        else:
+            print("skipping WITHDRAWN " + eItem.osfId)
             
 
     def fillData(self, eItem):
         print("fill data if present and published doi")
         if self.doi:
-            self.pp.doi = self.doi
+            # append 'https://doi.org/' to the doi
+            self.pp.doi = 'https://doi.org/' + self.doi
         num = 0
         if eItem.data is not None:
             num += 1
@@ -458,13 +467,13 @@ class Worker:
         print("lets get the list of all licenses")
         # create a dictionary of OSF id and License       
         next = self.osf.eer_search
-        count = 0
+        #count = 0
         while next is not None:
             data = self.osf.getItems(next)
             next = data['links']['next']
-            if count != 0:
-                next = None
-            count = 1
+            #if count > 3:
+            #    next = None
+            #count += 1
 
             for i in range(len(data['data'])):
                 a = EarthItem(data['data'][i])
