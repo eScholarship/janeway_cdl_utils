@@ -352,7 +352,7 @@ class ArticleMetadata:
     def verifyData(self, root):
         print("verify the data")
 
-        #name sure required custom meta fields are present
+        #make sure required custom meta fields are present
         approval = list(filter(lambda x: x.name == "author_approval", self.customfields))[0]
         assert approval.value == 'true', "author approval is expected"
         #make sure cc-by is present
