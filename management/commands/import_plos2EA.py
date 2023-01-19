@@ -25,10 +25,7 @@ COI_ID = 1
 DATA_ID = 1
 CCBY_ID = 1
 REPO_NAME = 'EarthArXiv (Dev)'
-SUCCESS_TO_MAIL = ['mahjabeen.yucekul@ucop.edu', 'alainna.wrigley@ucop.edu']
-FAILURE_TO_MAIL = ['mahjabeen.yucekul@ucop.edu', 'alainna.wrigley@ucop.edu']
-#SUCCESS_TO_MAIL = ['mahjabeen.yucekul@ucop.edu','eartharxiv_notifications@plos.org']
-#FAILURE_TO_MAIL = ['mahjabeen.yucekul@ucop.edu','help@escholarship.org']
+
 class Command(BaseCommand): 
     """
     Pulls data from COS and adds to DB.
@@ -41,7 +38,7 @@ class Command(BaseCommand):
         if self.check_prereq() == False:
             return
         #self.testEmail()
-        print(django_settings.IMPORT_TOKEN)
+        
 
         w = Worker()
         w.processAll()
@@ -51,7 +48,9 @@ class Command(BaseCommand):
         if django_settings.IMPORT_TOKEN is None:
             print("add Import token to settings to proceed")
             return False
-
+        if django_settings.PLOS_SUCCESS is None or django_settings.PLOS_FAILURE is None:
+            print("add notification emails to settings to proceed")
+            return False
         # get repository
         global REPO_ID
         global PRESS_ID
@@ -80,7 +79,7 @@ class Command(BaseCommand):
             'Test Subject',
             'Test message.',
             django_settings.DEFAULT_FROM_EMAIL ,
-            SUCCESS_TO_MAIL,
+            django_settings.PLOS_SUCCESS,
             fail_silently=False,
         )
 
@@ -232,7 +231,7 @@ class Worker:
             subject,
             message,
             django_settings.DEFAULT_FROM_EMAIL ,
-            SUCCESS_TO_MAIL,
+            django_settings.PLOS_SUCCESS,
             fail_silently=False,
         )
 
@@ -242,7 +241,7 @@ class Worker:
             subject,
             message,
             django_settings.DEFAULT_FROM_EMAIL ,
-            FAILURE_TO_MAIL,
+            django_settings.PLOS_FAILURE,
             fail_silently=False,
         )
 
