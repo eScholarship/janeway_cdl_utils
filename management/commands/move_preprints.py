@@ -68,13 +68,6 @@ class Command(BaseCommand):
                 "active_user and proxy_user have the same id, nothing to do"
             )
 
-        if active_user.is_active is False:
-            raise CommandError(
-                "active_user {} must have an active account".format(
-                    options["active_user"]
-                )
-            )
-
         # sql for moving the preprints
         update_preprints = "update janeway.repository_preprint set owner_id={} where owner_id={};".format(
             active_user.id, proxy_user.id
@@ -97,15 +90,17 @@ class Command(BaseCommand):
                 )
 
         # echo what will happen, and ask the operator to okay
-        prompt = """active_user
-	{} ({})
+        prompt = """user
+	{} ({}) **{} USER**
 will become the owner of preprints from the proxy user
-	{} ({})
+	{} ({}) **{} USER**
 """.format(
             active_user.full_name(),
             active_user.email,
+            "ACTIVE" if active_user.is_active else "INACTIVE",
             proxy_user.full_name(),
             proxy_user.email,
+            "ACTIVE" if proxy_user.is_active else "INACTIVE",
         )
         self.stdout.write(self.style.NOTICE(prompt))
 
