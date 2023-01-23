@@ -24,7 +24,6 @@ REPO_ID = 1
 COI_ID = 1
 DATA_ID = 1
 CCBY_ID = 1
-REPO_NAME = 'EarthArXiv (Dev)'
 
 class Command(BaseCommand): 
     """
@@ -48,6 +47,9 @@ class Command(BaseCommand):
         if django_settings.IMPORT_TOKEN is None:
             print("add Import token to settings to proceed")
             return False
+        if django_settings.REPO_NAME is None or django_settings.CCBY_NAME is None:
+            print("add repo and ccby names to settings to proceed")
+            return False
         if django_settings.PLOS_SUCCESS is None or django_settings.PLOS_FAILURE is None:
             print("add notification emails to settings to proceed")
             return False
@@ -59,12 +61,12 @@ class Command(BaseCommand):
         global CCBY_ID
 
         # TBD - fix this check
-        repo = repository_models.Repository.objects.get(name=REPO_NAME)
+        repo = repository_models.Repository.objects.get(name=django_settings.REPO_NAME)
         REPO_ID = repo.id
         PRESS_ID = repo.press_id
         COI_ID = repository_models.RepositoryField.objects.get_or_create(name='Conflict of interest statement', input_type='text', repository_id = REPO_ID, defaults={'required':0, 'order':1, 'display':0 })[0].id
         DATA_ID = repository_models.RepositoryField.objects.get_or_create(name='Data Availability (Reason not available)', input_type='text', repository_id = REPO_ID, defaults={'required':0, 'order':2, 'display':0 })[0].id
-        CCBY_ID = submission_models.Licence.objects.get(name='CC BY Attribution 4.0 International',press_id = PRESS_ID).id
+        CCBY_ID = submission_models.Licence.objects.get(name=django_settings.CCBY_NAME,press_id = PRESS_ID).id
 
         print("REPO_ID" + str(REPO_ID))
         print("PRESS_ID" + str(PRESS_ID))
@@ -113,8 +115,7 @@ class Worker:
                 local_filename = os.path.join(self.workingDir, filename)
                 file = open(local_filename, 'wb')
                 ftps.retrbinary('RETR '+ filename, file.write)
-                # to be enabled
-                #ftps.delete(filename)
+                ftps.delete(filename)
 
 
     def processAll(self):
