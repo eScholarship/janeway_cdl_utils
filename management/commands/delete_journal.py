@@ -19,7 +19,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            "journal_code", help="`code` of the journal to add arks", type=str
+            "journal_code", help="`code` of the journal to to delete", type=str
         )
 
     def handle(self, *args, **options):
@@ -27,24 +27,36 @@ class Command(BaseCommand):
 
         j = Journal.objects.get(code=journal_code)
 
-        prompt = f'You are deleting {j} and all associated files.'
+        prompt = f'You are deleting {j.name} and all associated files.'
         self.stdout.write(self.style.NOTICE(prompt))
 
         if not boolean_input("Are you sure? (yes/no)"):
             raise CommandError("delete journal aborted")
 
         for a in j.article_set.all():
-            aux_dir = os.path.join(settings.BASE_DIR, 'files', f'{a.pk - {}}', str(a.pk))
+            print(f'Article {a}')
+            aux_dir = os.path.join(settings.BASE_DIR, 'files', f'{a.pk} - {a.title}', str(a.pk))
             for f in File.objects.filter(article_id=a.pk):
+                print(f'\tFile: {f}')
                 for h in f.history.all():
+                    print(f'\t\tFile history: {h}')
                     path = os.path.join(settings.BASE_DIR, 'files', 'articles', str(a.pk), str(h.uuid_filename))
                     if os.path.exists(path):
+                        print(f'\t\t\tFound path to delete: {path}')
                         os.unlink(path)
                     else:
                         path = os.path.join(aux_dir , str(h.uuid_filename))
                         if os.path.exists(path):
+                            print(f'\t\t\tFound path to delete: {path}')
                             os.unlink(path)
+                        else:
+                            print("\t\t\tNo file history found")
+                print(f'\tDelete file object: {f.pk}')
                 f.delete()
             if os.path.exists(aux_dir):
+                print(f'\tdelete aux dir: {aux_dir}')
                 os.unlink(aux_dir)
+            else:
+                print(f'No aux dir {aux_dir} found.')
         j.delete()
+        print(f'Deleting journal {j.name}')
