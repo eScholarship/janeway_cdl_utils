@@ -21,9 +21,15 @@ class Command(BaseCommand):
         parser.add_argument(
             "journal_code", help="`code` of the journal to to delete", type=str
         )
+        parser.add_argument(
+            '--dry-run',
+            action='store_true',
+            help="Print the output but don't delete",
+        )
 
     def handle(self, *args, **options):
         journal_code = options.get("journal_code")
+        delete = not options["dry_run"]
 
         j = Journal.objects.get(code=journal_code)
 
@@ -43,20 +49,25 @@ class Command(BaseCommand):
                     path = os.path.join(settings.BASE_DIR, 'files', 'articles', str(a.pk), str(h.uuid_filename))
                     if os.path.exists(path):
                         print(f'\t\t\tFound path to delete: {path}')
-                        os.unlink(path)
+                        if delete:
+                            os.unlink(path)
                     else:
                         path = os.path.join(aux_dir , str(h.uuid_filename))
                         if os.path.exists(path):
                             print(f'\t\t\tFound path to delete: {path}')
-                            os.unlink(path)
+                            if delete:
+                                os.unlink(path)
                         else:
                             print("\t\t\tNo file history found")
                 print(f'\tDelete file object: {f.pk}')
-                f.delete()
+                if delete:
+                    f.delete()
             if os.path.exists(aux_dir):
                 print(f'\tdelete aux dir: {aux_dir}')
-                os.unlink(aux_dir)
+                if delete:
+                    os.unlink(aux_dir)
             else:
                 print(f'No aux dir {aux_dir} found.')
-        j.delete()
+        if delete:
+            j.delete()
         print(f'Deleting journal {j.name}')
