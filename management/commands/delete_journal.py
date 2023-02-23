@@ -59,6 +59,9 @@ class Command(BaseCommand):
                                 os.unlink(path)
                         else:
                             print("\t\t\tNo file history found")
+                    print(f'\t\tDelete file history object: {h.pk}')
+                    if delete:
+                        h.delete()
                 print(f'\tDelete file object: {f.pk}')
                 if delete:
                     f.delete()
