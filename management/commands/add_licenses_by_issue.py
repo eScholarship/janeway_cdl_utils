@@ -35,7 +35,7 @@ class Command(BaseCommand):
                 else:
                     print(f'Found license: {j} {i["rights"]}')
                 
-                i_set = Issue.objects.filter(journal=j, volume=i["volume"], issue=i["issue"])                
+                i_set = Issue.objects.filter(journal=j, volume=i["volume"], issue=i["issue"]).exclude(articles=None)
                 if not i_set.exists():
                     print(f'ERROR issue not found: {i["volume"]} {i["issue"]}')
                 elif i_set.count() > 1:
