@@ -42,7 +42,7 @@ class Command(BaseCommand):
                     print(f'ERROR duplicate issues found: {i["volume"]} {i["issue"]}')
                 else:
                     print(f'Found issue: {i["volume"]} {i["issue"]}')
-                    issue = Issue.objects.get(journal=j, volume=i["volume"], issue=i["issue"])
+                    issue = i_set[0]
                     for a in issue.articles.all():
                         if a.license:
                             print(f'\tArticle already has license {a.pk}')
