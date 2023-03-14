@@ -131,6 +131,7 @@ class Worker:
 
         itemIdCreated = None
         goAttribs = None
+        preprint = None
         try:
             #get the base name
             goAttribs = self.parseGoFile(gofilename)
@@ -238,6 +239,7 @@ class Worker:
 
     def sendFailureEmail(self, subject, message):
         print("send failure email " + message)
+
         send_mail(
             subject,
             message,
@@ -340,14 +342,17 @@ class ArticleMetadata:
             if child.find('collab') is None:
                 self.authors.append(AuthorMetadata(child))
         subjsroot = root.find('front/article-meta/article-categories/subj-group')
-        for child in subjsroot:
-            self.subjects.append(child.text)
+        if subjsroot is not None:
+            for child in subjsroot:
+                self.subjects.append(child.text)
         keyroot = root.find('front/article-meta/kwd-group')
-        for child in keyroot:
-            self.keywords.append(child.text)
+        if keyroot is not None:
+            for child in keyroot:
+                self.keywords.append(child.text)
         customroot = root.find('front/article-meta/custom-meta-group')
-        for child in customroot:
-            self.customfields.append(CustomMetadata(child))
+        if customroot is not None:
+            for child in customroot:
+                self.customfields.append(CustomMetadata(child))
         self.reuse = root.find('front/article-meta/permissions/license/license-p').text
 
     def verifyData(self, root):
@@ -387,7 +392,7 @@ class PreprintItem:
         # let's make sure there is not other item with this source item id
         # TBD
         # create item
-        self.pp = repository_models.Preprint.objects.create(title = self.importedInfo.title, abstract = self.importedInfo.abstract, stage='preprint_review', current_step=5,
+        self.pp = repository_models.Preprint.objects.create(title = self.importedInfo.title, abstract = self.importedInfo.abstract, stage='preprint_unsubmitted', current_step=5,
                                                                                         preprint_decision_notification = 0, repository_id = REPO_ID, 
                                                                                         license_id = CCBY_ID, date_started = self.dateCreated, date_submitted = self.dateCreated)
 
@@ -405,6 +410,7 @@ class PreprintItem:
 
         self.addFields()
         self.addDatalinks()
+        self.pp.stage = 'preprint_review'
         self.pp.save()
 
     def addfile(self):
