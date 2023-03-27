@@ -18,6 +18,7 @@ from ftplib import FTP_TLS
 from datetime import datetime
 import traceback
 import sys
+import html
 
 PRESS_ID = 1
 REPO_ID = 1
@@ -296,8 +297,8 @@ class AuthorMetadata:
         print("parse name")
         #make sure name style is western
         assert namenode.attrib['name-style']=="western", "expecting western stye name"
-        self.lname = namenode.find('surname').text
-        self.fname = namenode.find('given-names').text
+        self.lname = html.unescape(namenode.find('surname').text)
+        self.fname = html.unescape(namenode.find('given-names').text)
 
 
     def parseaddress(self, addrnode):
@@ -334,8 +335,8 @@ class ArticleMetadata:
 
     def fillData(self, root):
         print("fill data for article")
-        self.title = root.find('front/article-meta/title-group/article-title').text
-        self.abstract = root.find('front/article-meta/abstract/p').text
+        self.title = html.unescape(root.find('front/article-meta/title-group/article-title').text)
+        self.abstract = html.unescape(root.find('front/article-meta/abstract/p').text)
         contribsroot = root.find('front/article-meta/contrib-group')
         for child in contribsroot:
             #skip collab authors
