@@ -473,7 +473,7 @@ class PreprintItem:
                                                                                                         'institution':auth.affil, 'is_active':0, 'is_staff':0, 'is_admin':0, 
                                                                                                         'enable_digest':0, 'enable_public_profile':0, 
                                                                                                         'date_joined': self.dateCreated, 'uuid':uuid4()})[0]
-            repository_models.PreprintAuthor.objects.get_or_create(author_id=result_auth.id, preprint_id=self.pp.id, account_id = result_acc.id, defaults={'order': order, 'affiliation':auth.affil})
+            repository_models.PreprintAuthor.objects.get_or_create(preprint_id=self.pp.id, account_id = result_acc.id, defaults={'order': order, 'affiliation':auth.affil})
             if auth.corresp == "yes":
                 self.pp.owner_id = result_acc.id
 
