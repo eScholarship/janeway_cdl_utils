@@ -4,6 +4,7 @@ A janeway plugin that contains management commands used by cdl staff
 
 ## Management commands
 
+* `delete_journal <journal_code> (--dry-run) (--no-prompt)` - Deletes the journal including articles, files and file histories and removes associated files from storage.  `--dry-run` will print output without actually deleting anything.  `--no-prompt` will run the command without confirming, used for testing *not recommended for command line use*
 * `duplicate_last_names`
 * `import_earth`
 * `import_eer`
