@@ -38,3 +38,9 @@ class TestDeleteJournals(TestCase):
         self.assertEqual(Journal.objects.count(), 1)
         self.assertEqual(Article.objects.filter(journal=None).count(), 0)
         self.assertEqual(Article.objects.count(), 0)
+
+    def test_delete_dry_run(self):
+        out = self.call_command(self.journal1.code, "--no-prompt", "--dry-run")
+        self.assertEqual(Journal.objects.count(), 2)
+        self.assertEqual(Article.objects.filter(journal=None).count(), 0)
+        self.assertEqual(Article.objects.count(), 1)

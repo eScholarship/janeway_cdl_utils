@@ -79,7 +79,8 @@ class Command(BaseCommand):
                     os.unlink(aux_dir)
             else:
                 print(f'No aux dir {aux_dir} found.')
-            a.delete()
+            if delete:
+                a.delete()
         if delete:
             print(f'Deleting journal {j.name}')
             j.delete()
