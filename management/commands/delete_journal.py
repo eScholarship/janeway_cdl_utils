@@ -26,18 +26,26 @@ class Command(BaseCommand):
             action='store_true',
             help="Print the output but don't delete",
         )
+        parser.add_argument(
+            '--no-prompt',
+            action='store_true',
+            help="Don't prompt the user (used for testing)",
+        )
 
     def handle(self, *args, **options):
         journal_code = options.get("journal_code")
         delete = not options["dry_run"]
+        do_prompt = not options["no_prompt"]
 
         j = Journal.objects.get(code=journal_code)
 
-        prompt = f'You are deleting {j.name} and all associated files.'
-        self.stdout.write(self.style.NOTICE(prompt))
 
-        if not boolean_input("Are you sure? (yes/no)"):
-            raise CommandError("delete journal aborted")
+        if do_prompt:
+            prompt = f'You are deleting {j.name} and all associated files.'
+            self.stdout.write(self.style.NOTICE(prompt))
+
+            if not boolean_input("Are you sure? (yes/no)"):
+                raise CommandError("delete journal aborted")
 
         for a in j.article_set.all():
             print(f'Article {a}')
@@ -71,6 +79,8 @@ class Command(BaseCommand):
                     os.unlink(aux_dir)
             else:
                 print(f'No aux dir {aux_dir} found.')
+            if delete:
+                a.delete()
         if delete:
+            print(f'Deleting journal {j.name}')
             j.delete()
-        print(f'Deleting journal {j.name}')
