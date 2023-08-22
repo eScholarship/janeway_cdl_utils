@@ -38,14 +38,13 @@ class Command(BaseCommand):
                 i_set = Issue.objects.filter(journal=j, volume=i["volume"], issue=i["issue"]).exclude(articles=None)
                 if not i_set.exists():
                     print(f'ERROR issue not found: {i["volume"]} {i["issue"]}')
-                elif i_set.count() > 1:
-                    print(f'ERROR duplicate issues found: {i["volume"]} {i["issue"]}')
                 else:
-                    print(f'Found issue: {i["volume"]} {i["issue"]}')
-                    issue = i_set[0]
-                    for a in issue.articles.all():
-                        if a.license:
-                            print(f'\tArticle already has license {a.pk}')
-                        else:
+                    if i_set.count() > 1:
+                        print(f'Found multiple issues ({i_set.count()}): {i["volume"]} {i["issue"]}')
+                    else:
+                        print(f'Found issue: {i["volume"]} {i["issue"]}')
+
+                    for issue in i_set.all():
+                        for a in issue.articles.all():
                             a.license = license
                             a.save()
