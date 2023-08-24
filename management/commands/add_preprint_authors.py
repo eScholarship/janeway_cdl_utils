@@ -34,6 +34,10 @@ class Command(BaseCommand):
                     raise CommandError(f'Preprint {pk} does not exist')
                 if not overwrite and PreprintAuthor.objects.filter(preprint__pk=pk, account__email=r["Email"]).exists():
                     raise CommandError(f'Account with email {r["Email"]} is already an author on Preprint {pk}. Did you mean to use *overwrite*?')
+                if not r["Email"] or len(r["Email"]) == 0:
+                    raise CommandError(f'No email address specified for {r["First Name"]} {r["Last Name"]}')
+                if not r["Author Order"] or len(r["Author Order"]) == 0:
+                    raise CommandError(f'No author order specified for {r["Email"]}')
                 rows.append(r)
                 if overwrite and not pk in preprints:
                     preprints.append(pk)
