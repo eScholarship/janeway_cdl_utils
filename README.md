@@ -14,3 +14,16 @@ A janeway plugin that contains management commands used by cdl staff
 * `janeway_version`
 * `missing_workflowlogs_report`
 * `move_preprints <active-user> <proxy-user>` - Merges metadata associated with a proxy user into a specified user account.  This account may be actived or not but it should be one that could be activated in the future.
+
+## Tests
+
+The test suite can be run in the context of a janeway development environment.  The general command (assuming the plugin is installed in a directory called 'cdl_utils'):
+
+```
+python src/manage.py test cdl_utils
+```
+
+If you are using a lando development environment:
+```
+lando manage test cdl_utils
+```
