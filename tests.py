@@ -4,12 +4,13 @@ from django.core.management.base import CommandError
 from utils.testing import helpers
 
 from submission.models import Article
-from journal.models import Journal
+from journal.models import Journal, Issue
 from core.models import Account
 from repository.models import PreprintAuthor
 
 from io import StringIO
 from django.core.management import call_command
+import os
 
 import os
 
@@ -67,6 +68,45 @@ class TestDeleteJournals(TestCase):
         self.assertEqual(Article.objects.filter(journal=None).count(), 0)
         self.assertEqual(Article.objects.count(), 1)
 
+class TestAddLicenses(TestCase):
+
+    def setUp(self):
+        self.journal, _ = helpers.create_journals()
+        self.article1 = helpers.create_article(self.journal)
+        self.article2 = helpers.create_article(self.journal)
+        self.issue1 = helpers.create_issue(self.journal, articles=[self.article1])
+        self.issue2 = self.create_duplicate_issue(self.issue1)
+        self.issue2.articles.add(self.article2)
+        self.issue2.save()
+
+    def call_command(self, *args, **kwargs):
+        out = StringIO()
+        call_command(
+            "add_licenses_by_issue",
+            *args,
+            stdout=out,
+            stderr=StringIO(),
+            **kwargs,
+        )
+        return out.getvalue()
+
+    def create_duplicate_issue(self, issue):
+        issue2 = Issue.objects.create(journal=issue.journal,
+                                      issue=issue.issue,
+                                      volume=issue.volume,
+                                      issue_title='Duplicate Issue',
+                                      issue_type=issue.issue_type,
+                                      date=issue.date)
+        return issue2
+
+    def get_file_path(self, filename):
+        return f'{os.path.dirname(__file__)}/test_files/{filename}'
+
+    def test_duplicate_issues(self):
+        out = self.call_command(self.journal.code, self.get_file_path("test_cc.tsv"))
+        self.assertEqual(Article.objects.get(pk=self.article1.pk).license.short_name, "CC BY-NC 4.0")
+        self.assertEqual(Article.objects.get(pk=self.article2.pk).license.short_name, "CC BY-NC 4.0")
+
 class TestAddPreprintAuthors(TestCase):
 
     def create_account(self, email, fname, mname, lname, institution):
@@ -101,7 +141,6 @@ class TestAddPreprintAuthors(TestCase):
             **kwargs,
         )
         return out.getvalue()
-
 
     def test_append_authors(self):
         with open("test.csv", 'w') as t:
