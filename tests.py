@@ -169,7 +169,7 @@ class TestAddPreprintAuthors(TestCase):
         self.assertEqual(u1.institution, "Other University")
 
         p1 = PreprintAuthor.objects.get(preprint=self.preprint, account=u1)
-        self.assertEqual(p1.order, 2)
+        self.assertEqual(p1.order, 3)
         self.assertEqual(p1.affiliation, "Test University")
 
         u2 = Account.objects.get(email="eaauthor-test3@mailinator.com")
@@ -179,8 +179,20 @@ class TestAddPreprintAuthors(TestCase):
         self.assertEqual(u2.institution, "Test University")
 
         p2 = PreprintAuthor.objects.get(preprint=self.preprint, account=u2)
-        self.assertEqual(p2.order, 5)
+        self.assertEqual(p2.order, 6)
         self.assertEqual(p2.affiliation, "Test University")
+
+        p3 = PreprintAuthor.objects.get(preprint=self.preprint, account__email="tinguru@mac.com")
+        self.assertEqual(p3.order, 2)
+
+        p4 = PreprintAuthor.objects.get(preprint=self.preprint, account__email="bobresearcher@mailinator.com")
+        self.assertEqual(p4.order, 4)
+
+        p5 = PreprintAuthor.objects.get(preprint=self.preprint, account__email="eaauthor-test2@mailinator.com")
+        self.assertEqual(p5.order, 5)
+
+        p6 = PreprintAuthor.objects.get(preprint=self.preprint, account__email="bobresearcher+3@mailinator.com")
+        self.assertEqual(p6.order, 7)
 
     def test_overwrite_authors(self):
         with open("test.csv", 'w') as t:

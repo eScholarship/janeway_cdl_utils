@@ -50,13 +50,18 @@ class Command(BaseCommand):
         if overwrite:
             for a in preprint.preprintauthor_set.all():
                 a.delete()
-        
+
+        if preprint.preprintauthor_set.count() > 0:
+            order_start = max(preprint.preprintauthor_set.all().values_list('order', flat=True))
+        else:
+            order_start = 0
+
         for r in rows:
             defaults = {'username': r["Email"], 'first_name': r["First Name"], 'middle_name': r["Middle Name"], 'last_name': r["Last Name"], 'institution': r["Affiliation"]}
             account, created = Account.objects.get_or_create(email=r["Email"], defaults=defaults)
             author, created = PreprintAuthor.objects.get_or_create(preprint=preprint,
                                                                    account=account,
-                                                                   defaults= {'order': r["Author Order"],
+                                                                   defaults= {'order': int(r["Author Order"]) + order_start,
                                                                               'affiliation': r["Affiliation"]})
             if created:
                 author.save()
