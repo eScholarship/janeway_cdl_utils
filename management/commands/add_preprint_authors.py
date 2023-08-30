@@ -60,3 +60,8 @@ class Command(BaseCommand):
                                                                               'affiliation': r["Affiliation"]})
             if created:
                 author.save()
+
+        if overwrite:
+            self.stdout.write(self.style.SUCCESS(f"✅ Preprint {preprint_id} author list successfully overwritten."))
+        else:
+            self.stdout.write(self.style.SUCCESS(f"✅ Preprint {preprint_id} author list successfully appended."))
