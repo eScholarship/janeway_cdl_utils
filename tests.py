@@ -31,6 +31,10 @@ test_no_email = """Preprint ID,Author Order,First Name,Middle Name,Last Name,Ema
 {id},,No,,Email,,Test University,"new user, no email"
 """
 
+test_no_id_column = """Author Order,First Name,Middle Name,Last Name,Email,Affiliation
+4,Wei,,Zhang,eaauthor-test2@mailinator.com,Test University
+"""
+
 class TestDeleteJournals(TestCase):
 
     def setUp(self):
@@ -145,7 +149,7 @@ class TestAddPreprintAuthors(TestCase):
     def test_append_authors(self):
         with open("test.csv", 'w') as t:
             t.write(test_users.format(id=self.preprint.pk))
-        out = self.call_command("test.csv")
+        out = self.call_command(self.preprint.pk, "test.csv")
 
         self.assertEqual(len(self.preprint.authors), 7)
 
@@ -181,7 +185,7 @@ class TestAddPreprintAuthors(TestCase):
     def test_overwrite_authors(self):
         with open("test.csv", 'w') as t:
             t.write(test_users.format(id=self.preprint.pk))
-        out = self.call_command("test.csv", "--overwrite")
+        out = self.call_command(self.preprint.pk, "test.csv", "--overwrite")
         self.assertEqual(len(self.preprint.authors), 6)
 
         self.assertFalse(PreprintAuthor.objects.filter(preprint=self.preprint, account=self.user4).exists())
@@ -198,9 +202,18 @@ class TestAddPreprintAuthors(TestCase):
         with open("test.csv", 'w') as t:
             t.write(test_users.format(id=1000))
         with self.assertRaises(CommandError) as e:
-            out = self.call_command("test.csv")
+            out = self.call_command(1000, "test.csv")
 
         self.assertEqual(str(e.exception), 'Preprint 1000 does not exist')
+        self.assertEqual(len(self.preprint.authors), 1)
+
+    def test_preprint_mismatch(self):
+        with open("test.csv", 'w') as t:
+            t.write(test_users.format(id=1000))
+        with self.assertRaises(CommandError) as e:
+            out = self.call_command(self.preprint.pk, "test.csv")
+
+        self.assertEqual(str(e.exception), f'Preprint ID 1000 does not match {self.preprint.pk}')
         self.assertEqual(len(self.preprint.authors), 1)
 
     def test_author_exists(self):
@@ -208,7 +221,7 @@ class TestAddPreprintAuthors(TestCase):
             t.write(test_users.format(id=self.preprint.pk))
         author = PreprintAuthor.objects.create(preprint=self.preprint, account=self.user0, order=1)
         with self.assertRaises(CommandError) as e:
-            out = self.call_command("test.csv")
+            out = self.call_command(self.preprint.pk, "test.csv")
 
         self.assertEqual(str(e.exception), f'Account with email bobresearcher@mailinator.com is already an author on Preprint {self.preprint.pk}. Did you mean to use *overwrite*?')
         self.assertEqual(len(self.preprint.authors), 2)
@@ -217,7 +230,7 @@ class TestAddPreprintAuthors(TestCase):
         with open("test.csv", 'w') as t:
             t.write(test_no_email.format(id=self.preprint.pk))
         with self.assertRaises(CommandError) as e:
-            out = self.call_command("test.csv")
+            out = self.call_command(self.preprint.pk, "test.csv")
 
         self.assertEqual(str(e.exception), 'No email address specified for No Email')
         self.assertEqual(len(self.preprint.authors), 1)
@@ -226,16 +239,23 @@ class TestAddPreprintAuthors(TestCase):
         with open("test.csv", 'w') as t:
             t.write(test_no_order.format(id=self.preprint.pk))
         with self.assertRaises(CommandError) as e:
-            out = self.call_command("test.csv")
+            out = self.call_command(self.preprint.pk, "test.csv")
 
         self.assertEqual(str(e.exception), 'No author order specified for no-order@test.org')
         self.assertEqual(len(self.preprint.authors), 1)
+
+    def test_no_id_column(self):
+        with open("test.csv", 'w') as t:
+            t.write(test_no_id_column)
+        out = self.call_command(self.preprint.pk, "test.csv")
+
+        self.assertEqual(len(self.preprint.authors), 2)
 
     def test_author_exists_overwrite(self):
         with open("test.csv", 'w') as t:
             t.write(test_users.format(id=self.preprint.pk))
         author = PreprintAuthor.objects.create(preprint=self.preprint, account=self.user0, order=1)
-        out = self.call_command("test.csv", "--overwrite")
+        out = self.call_command(self.preprint.pk, "test.csv", "--overwrite")
 
         self.assertEqual(len(self.preprint.authors), 6)
 
