@@ -14,6 +14,8 @@ A janeway plugin that contains management commands used by cdl staff
 * `janeway_version`
 * `missing_workflowlogs_report`
 * `move_preprints <active-user> <proxy-user>` - Merges metadata associated with a proxy user into a specified user account.  This account may be actived or not but it should be one that could be activated in the future.
+* `no_arks <journal-code>` - Reports published articles in a given journal that don't have an associated eScholarship ark
+* `no_correspondence_author <journal-code>` - Reports articles in a given journal that don't have a correspondence author
 
 ## Tests
 
