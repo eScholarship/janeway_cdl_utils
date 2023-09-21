@@ -22,9 +22,9 @@ class Command(BaseCommand):
             raise CommandError(f"No journal code = {code} found")
 
         ids = EscholArticle.objects.filter(article__journal__code=code).values_list('article__pk', flat=True)
-        articles = Article.objects.filter(journal__code="uccllt_l2", stage="Published").exclude(pk__in=ids)
+        articles = Article.objects.filter(journal__code=code, stage="Published").exclude(pk__in=ids)
         if articles.count() == 0:
-            print(f"There are no articles in {code} without an escholarship ark assigned")
+            print(f"There are no published articles in {code} without an escholarship ark assigned")
         else:
             for a in articles:
                 print(f'{a.stage}\t{a.pk}\t{a.url}')
