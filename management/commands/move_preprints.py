@@ -48,8 +48,14 @@ class Command(BaseCommand):
             "active_user", help="`email` of new active account", type=str
         )
         parser.add_argument("proxy_user", help="`email` of old proxy account", type=str)
+        parser.add_argument(
+            '--no-prompt',
+            action='store_true',
+            help="Don't prompt the user (used for testing)",
+        )
 
     def handle(self, *args, **options):
+        do_prompt = not options["no_prompt"]
         if not Account.objects.filter(email=options["active_user"]).exists():
             raise CommandError(
                 "active_user does not exist"
@@ -114,7 +120,7 @@ will become the owner of preprints from the proxy user
             self.stdout.write(self.style.NOTICE("author metadata for active_user and proxy_user will be merged"))
             self.stdout.write(str(new_author_dict))
 
-        if not boolean_input("Are you sure? (yes/no)"):
+        if do_prompt and not boolean_input("Are you sure? (yes/no)"):
             raise CommandError("preprint move aborted")
 
         # merge authors as needed
