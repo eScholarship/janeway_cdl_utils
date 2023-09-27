@@ -126,7 +126,6 @@ will become the owner of preprints from the proxy user
         # merge authors as needed
         if update_authors is None and not proxy_author is None:
             Author.objects.filter(pk=active_author.pk).update(**new_author_dict)
-            PreprintAuthor.objects.filter(author=proxy_author).update(author=active_author)
             proxy_author.delete()
 
         for pa in PreprintAuthor.objects.filter(account=proxy_user):
