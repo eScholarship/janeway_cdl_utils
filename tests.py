@@ -56,9 +56,6 @@ class TestMovePreprints(TestCase):
         return out.getvalue()
 
     def test_merge_accounts(self):
-        print(self.preprint.owner.pk)
-        print(self.active_user.pk)
-        print(self.author.pk)
         out = self.call_command(self.active_user.email, self.author.email, "--no-prompt")
         self.assertTrue(PreprintAuthor.objects.filter(preprint=self.preprint, account=self.active_user).exists())
         self.assertFalse(Account.objects.filter(pk=self.author.pk).exists())
