@@ -6,7 +6,7 @@ from utils.testing import helpers
 from submission.models import Article
 from journal.models import Journal, Issue
 from core.models import Account
-from repository.models import PreprintAuthor, Author
+from repository.models import PreprintAuthor, Author, Preprint
 
 from io import StringIO
 from django.core.management import call_command
@@ -55,12 +55,23 @@ class TestMovePreprints(TestCase):
         )
         return out.getvalue()
 
+    def test_merge_accounts(self):
+        print(self.preprint.owner.pk)
+        print(self.active_user.pk)
+        print(self.author.pk)
+        out = self.call_command(self.active_user.email, self.author.email, "--no-prompt")
+        self.assertTrue(PreprintAuthor.objects.filter(preprint=self.preprint, account=self.active_user).exists())
+        self.assertFalse(Account.objects.filter(pk=self.author.pk).exists())
+        self.assertEqual(Preprint.objects.get(pk=self.preprint.pk).owner.pk, self.active_user.pk)
+
     def test_old_authors(self):
         active_author = Author.objects.create(email_address=self.active_user.email, first_name="Active", last_name="Author")
         proxy_author = Author.objects.create(email_address=self.proxy_user.email, first_name="Proxy", last_name="Author")
         out = self.call_command(self.active_user.email, self.proxy_user.email, "--no-prompt")
+        # just ignore the "Author" table now
+        # this test can just be deleted with the Authors table is fully deleted
         self.assertTrue(Author.objects.filter(email_address=self.active_user.email).exists())
-        self.assertFalse(Author.objects.filter(email_address=self.proxy_user.email).exists())
+        self.assertTrue(Author.objects.filter(email_address=self.proxy_user.email).exists())
 
 class TestDeleteJournals(TestCase):
 
