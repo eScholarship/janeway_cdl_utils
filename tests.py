@@ -6,11 +6,10 @@ from utils.testing import helpers
 from submission.models import Article
 from journal.models import Journal, Issue
 from core.models import Account
-from repository.models import PreprintAuthor
+from repository.models import PreprintAuthor, Author, Preprint
 
 from io import StringIO
 from django.core.management import call_command
-import os
 
 import os
 
@@ -34,6 +33,42 @@ test_no_email = """Preprint ID,Author Order,First Name,Middle Name,Last Name,Ema
 test_no_id_column = """Author Order,First Name,Middle Name,Last Name,Email,Affiliation
 4,Wei,,Zhang,eaauthor-test2@mailinator.com,Test University
 """
+
+class TestMovePreprints(TestCase):
+    def setUp(self):
+        self.user = helpers.create_user("manager@test.edu")
+        self.press = helpers.create_press()
+        self.repo, subject = helpers.create_repository(self.press, [self.user], [self.user])
+        self.author = helpers.create_user("author@test.edu")
+        self.preprint = helpers.create_preprint(self.repo, self.author, subject)
+        self.active_user = helpers.create_user("active@test.edu")
+        self.proxy_user = helpers.create_user("proxy@test.edu")
+
+    def call_command(self, *args, **kwargs):
+        out = StringIO()
+        call_command(
+            "move_preprints",
+            *args,
+            stdout=out,
+            stderr=StringIO(),
+            **kwargs,
+        )
+        return out.getvalue()
+
+    def test_merge_accounts(self):
+        out = self.call_command(self.active_user.email, self.author.email, "--no-prompt")
+        self.assertTrue(PreprintAuthor.objects.filter(preprint=self.preprint, account=self.active_user).exists())
+        self.assertFalse(Account.objects.filter(pk=self.author.pk).exists())
+        self.assertEqual(Preprint.objects.get(pk=self.preprint.pk).owner.pk, self.active_user.pk)
+
+    def test_old_authors(self):
+        active_author = Author.objects.create(email_address=self.active_user.email, first_name="Active", last_name="Author")
+        proxy_author = Author.objects.create(email_address=self.proxy_user.email, first_name="Proxy", last_name="Author")
+        out = self.call_command(self.active_user.email, self.proxy_user.email, "--no-prompt")
+        # just ignore the "Author" table now
+        # this test can just be deleted with the Authors table is fully deleted
+        self.assertTrue(Author.objects.filter(email_address=self.active_user.email).exists())
+        self.assertTrue(Author.objects.filter(email_address=self.proxy_user.email).exists())
 
 class TestDeleteJournals(TestCase):
 
