@@ -40,13 +40,13 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--delete',
+            '--delete-files',
             action='store_true',
-            help="Delete all articles that aren't associated with a journal",
+            help="Prompt user to delete files not referenced in the db by directory",
         )
 
     def handle(self, *args, **options):
-        delete = options["delete"]
+        delete = options["delete_files"]
 
         count = 0
         # search article files directory
