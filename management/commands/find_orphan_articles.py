@@ -37,6 +37,7 @@ class Command(BaseCommand):
             f.delete()
             if os.path.exists(aux_dir):
                 os.unlink(aux_dir)
+        article.delete()
 
     def handle(self, *args, **options):
         delete = options["delete_all"]
