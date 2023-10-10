@@ -44,7 +44,7 @@ class Command(BaseCommand):
 
         articles = Article.objects.filter(journal=None)
         if articles.count() == 0:
-            print("No articles are not associated with a journal")
+            print("All articles are associated with a journal")
         else:
             print(f'Found {articles.count()} articles:')
             for a in articles:
