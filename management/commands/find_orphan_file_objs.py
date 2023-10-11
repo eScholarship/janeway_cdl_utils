@@ -38,22 +38,30 @@ class Command(BaseCommand):
         file_objs = File.objects.exclude(uuid_filename__in=all_files)
         if file_objs.exists():
             for f in file_objs:
-                print(f'{f}')
+                print(f'File {f.pk}\tArticle {f.article_id}\t{f.original_filename}\t{f.uuid_filename}')
 
             if delete:
                 prompt = f'You are deleting {file_objs.count()} file objects for which no file was found on disk.'
                 self.stdout.write(self.style.NOTICE(prompt))
                 if boolean_input("Are you sure? (yes/no)"):
                     file_objs.delete()
+            else:
+                print(f"Found {file_objs.count()} file objects with no matching file on disk")
+        else:
+            print("All file objects have a file on disk")
 
         fhistories = FileHistory.objects.exclude(uuid_filename__in=all_files)
         if fhistories.exists():
             for f in fhistories:
-                print(f'{f}')
+                print(f'History {f.pk}\tFile {f.file_set.all()}\tArticle {f.article_id}\t{f.original_filename}\t{f.uuid_filename}')
 
             if delete:
                 prompt = f'You are deleting {fhistories.count()} file histories for which no file was found on disk.'
                 self.stdout.write(self.style.NOTICE(prompt))
                 if boolean_input("Are you sure? (yes/no)"):
                     fhistories.delete()
+            else:
+                print(f"Found {fhistories.count()} file histories with no matching file on disk")
+        else:
+            print("All file histories have a file on disk")
 
