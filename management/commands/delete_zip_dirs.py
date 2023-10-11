@@ -40,3 +40,5 @@ class Command(BaseCommand):
             if boolean_input("Are you sure? (yes/no)"):
                 for d in dirs:
                     shutil.rmtree(os.path.join(file_dir, d))
+        else:
+            print(f"Found {len(dirs)} directories that matche the zip file staging directory name format")
