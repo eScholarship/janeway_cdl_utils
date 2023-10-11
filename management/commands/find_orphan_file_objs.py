@@ -53,7 +53,8 @@ class Command(BaseCommand):
         fhistories = FileHistory.objects.exclude(uuid_filename__in=all_files)
         if fhistories.exists():
             for f in fhistories:
-                print(f'History {f.pk}\tFile {f.file_set.all()}\tArticle {f.article_id}\t{f.original_filename}\t{f.uuid_filename}')
+                file_ids = list(f.file_set.all().values_list('pk', flat=True))
+                print(f'History {f.pk}\tFile {file_ids}\tArticle {f.article_id}\t{f.original_filename}\t{f.uuid_filename}')
 
             if delete:
                 prompt = f'You are deleting {fhistories.count()} file histories for which no file was found on disk.'
