@@ -16,12 +16,6 @@ class Command(BaseCommand):
             help="Delete all directories matching the name format 'PK - Title'",
         )
 
-    def find_files(self, path):
-        all_files = []
-        for root, dirs, files in os.walk(path):
-            all_files += files
-        return all_files
-
     def handle(self, *args, **options):
         delete = options["delete_all"]
 
@@ -41,4 +35,4 @@ class Command(BaseCommand):
                 for d in dirs:
                     shutil.rmtree(os.path.join(file_dir, d))
         else:
-            print(f"Found {len(dirs)} directories that matche the zip file staging directory name format")
+            print(f"Found {len(dirs)} directories that match the zip file staging directory name format")
