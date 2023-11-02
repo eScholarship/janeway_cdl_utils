@@ -21,7 +21,9 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        journal_code = options.get("journal_code")
+        # janeway journal codes are limited to 24 chars
+        # truncate it if the user doesn't
+        journal_code = options.get("journal_code")[:24]
         import_file = options.get("import_file")
 
         j = Journal.objects.get(code=journal_code)
