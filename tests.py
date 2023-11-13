@@ -146,6 +146,11 @@ class TestAddLicenses(TestCase):
         self.assertEqual(Article.objects.get(pk=self.article1.pk).license.short_name, "CC BY-NC 4.0")
         self.assertEqual(Article.objects.get(pk=self.article2.pk).license.short_name, "CC BY-NC 4.0")
 
+    def test_null_license(self):
+        out = self.call_command(self.journal.code, self.get_file_path("test_null_cc.tsv"))
+        self.assertIsNone(Article.objects.get(pk=self.article1.pk).license)
+        self.assertIsNone(Article.objects.get(pk=self.article2.pk).license)
+
 class TestAddPreprintAuthors(TestCase):
 
     def create_account(self, email, fname, mname, lname, institution):
