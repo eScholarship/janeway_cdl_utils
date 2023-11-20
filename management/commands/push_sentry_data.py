@@ -17,14 +17,16 @@ class Command(BaseCommand):
 
         if response.status_code == 200:
             rdata = json.loads(response.text)
-            avg_time = rdata["data"][0]["avg(transaction.duration)"]
             units = rdata["units"]["avg(transaction.duration)"]
+            data = []
+            for i in rdata["data"]:
+              avg_time = i["avg(transaction.duration)"]
  
-            data = [ {'MetricName': 'JANEWAY_TRANSACTIONS',
-                  'Dimensions': [{'Name': 'Transaction',
-                                  'Value': 'Average'},],
-                  'Unit': units,
-                  'Value': avg_time}]
+              data.append({'MetricName': 'JANEWAY_TRANSACTIONS',
+                           'Dimensions': [{'Name': 'Transaction',
+                                           'Value': 'Average'},],
+                           'Unit': units,
+                           'Value': avg_time})
 
             cloudwatch = boto3.client('cloudwatch')
 
