@@ -16,23 +16,23 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         cloudwatch = boto3.client('cloudwatch')
 
-        data = [ {'MetricName': 'JANEWAY_DB_COUNTS',
-                  'Dimensions': [{'Name': 'JOURNAL',
+        data = [ {'MetricName': 'TOTAL_JOURNALS',
+                  'Dimensions': [{'Name': 'DB_COUNT',
                                   'Value': 'COUNT'},],
                   'Unit': 'None',
                   'Value': Journal.objects.all().count()},
-                {'MetricName': 'JANEWAY_DB_COUNTS',
-                  'Dimensions': [{'Name': 'ARTICLE',
+                {'MetricName': 'TOTAL_ARTICLES',
+                  'Dimensions': [{'Name': 'DB_COUNT',
                                   'Value': 'COUNT'},],
                   'Unit': 'None',
                   'Value': Article.objects.all().count()},
-                {'MetricName': 'JANEWAY_DB_COUNTS',
-                  'Dimensions': [{'Name': 'FILE',
+                {'MetricName': 'TOTAL_FILES',
+                  'Dimensions': [{'Name': 'DB_COUNT',
                                   'Value': 'COUNT'},],
                   'Unit': 'None',
                   'Value': File.objects.all().count()}]
 
-        response = cloudwatch.put_metric_data(MetricData=data, Namespace="Janeway/DBCounts")
+        response = cloudwatch.put_metric_data(MetricData=data, Namespace="Janeway/Metrics")
 
         if response["ResponseMetadata"]["HTTPStatusCode"] == 200:
             logger.info("Send metrics: success")

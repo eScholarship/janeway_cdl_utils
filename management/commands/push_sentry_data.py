@@ -28,7 +28,7 @@ class Command(BaseCommand):
 
             cloudwatch = boto3.client('cloudwatch')
 
-            response = cloudwatch.put_metric_data(MetricData=data, Namespace="Janeway/Transactions")
+            response = cloudwatch.put_metric_data(MetricData=data, Namespace="Janeway/Metrics")
 
             if response["ResponseMetadata"]["HTTPStatusCode"] == 200:
                 logger.info("Send metrics: success")
