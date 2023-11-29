@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand, CommandError
 
-import csv
+import csv, os
 
 from repository.models import Preprint, PreprintAuthor
 from core.models import Account
@@ -31,6 +31,9 @@ class Command(BaseCommand):
 
         if not Preprint.objects.filter(pk=preprint_id).exists():
             raise CommandError(f'Preprint {preprint_id} does not exist')
+
+        if not os.path.exists(import_file):
+            raise CommandError(f'File {import_file} not found.')
 
         with open(import_file, 'r') as csvfile:
             reader = csv.DictReader(csvfile, delimiter=",")
