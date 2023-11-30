@@ -13,8 +13,16 @@ class Command(BaseCommand):
     """Pushes db counts to AWS CloudWatch metrics"""
     help = "Pushes db counts to AWS CloudWatch metrics"
 
+    def add_arguments(self, parser):
+        parser.add_argument("-p", "--profile", type=str)
+ 
     def handle(self, *args, **options):
-        cloudwatch = boto3.client('cloudwatch')
+        profile = options.get("profile", False)
+        if profile:
+          session = boto3.Session(profile_name=profile, region_name="us-west-2")
+          cloudwatch = session.client('cloudwatch')
+        else:
+          cloudwatch = boto3.client('cloudwatch')
 
         data = [ {'MetricName': 'TOTAL_JOURNALS',
                   'Dimensions': [{'Name': 'DB_COUNT',
