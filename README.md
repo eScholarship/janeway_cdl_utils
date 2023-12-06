@@ -16,6 +16,8 @@ A janeway plugin that contains management commands used by cdl staff
 * `move_preprints <active-user> <proxy-user>` - Merges metadata associated with a proxy user into a specified user account.  This account may be actived or not but it should be one that could be activated in the future.
 * `no_arks <journal-code>` - Reports published articles in a given journal that don't have an associated eScholarship ark
 * `no_correspondence_author <journal-code>` - Reports articles in a given journal that don't have a correspondence author
+* `push_db_metrics (--profile <aws_profile_name>)` - Pushes current journal, article and file counts to AWS CloudWatch metrics.  You may optionally provide a profile name or if you are using an IAM role you can add it in the settings file as METRICS_ROLE.
+* `push_sentry_metrics (--profile <aws_profile_name> --daysago <number>)` - Push the average transaction time for a 24 hour period by default the previous 24 hour period but you may optionally provide a number of days ago to push previous data.  AWS authentication is the same as for `push_db_metrics`.
 
 ## Tests
 
