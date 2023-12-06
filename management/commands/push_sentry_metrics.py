@@ -43,11 +43,22 @@ class Command(BaseCommand):
                            'Value': avg_time,
                            'Timestamp': timestamp})
 
-            if profile:
-                session = boto3.Session(profile_name=profile, region_name="us-west-2")
+            region = "us-west-2"
+            if profile: # if a profile is indicated use that
+                session = boto3.Session(profile_name=profile, region_name=region)
                 cloudwatch = session.client('cloudwatch')
-            else:
-                cloudwatch = boto3.client('cloudwatch')
+            elif hasattr(settings, 'METRICS_ROLE'): # else look for a role
+                sts = boto3.client('sts', region_name=region)
+                resp = sts.assume_role(RoleArn=settings.METRICS_ROLE,
+                                       RoleSessionName="push_janeway_db_metrics")
+                cred = resp['Credentials']
+                subsession = boto3.session.Session(aws_access_key_id=cred['AccessKeyId'],
+                                                   aws_secret_access_key=cred['SecretAccessKey'],
+                                                   aws_session_token=cred['SessionToken'],
+                                                   region_name=region)
+                cloudwatch = subsession.client('cloudwatch', region_name=region)
+            else: # else try the default behavior (on ec2 use the local role)
+                cloudwatch = boto3.client('cloudwatch', region_name=region)
 
             response = cloudwatch.put_metric_data(MetricData=data, Namespace="Janeway/Metrics")
 
