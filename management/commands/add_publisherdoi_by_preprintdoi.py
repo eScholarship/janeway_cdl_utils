@@ -26,6 +26,7 @@ class Command(BaseCommand):
         specialstring_count = 0
         doi_errors = 0
         notfound_errors = 0
+        multipleresults_errors = 0
         with open(import_file, 'r') as csvfile:
             reader = csv.DictReader(csvfile, delimiter=",")
             for i in reader:
@@ -44,14 +45,22 @@ class Command(BaseCommand):
                     # preprint doi is saved without the doi.org prefix
                     preprint = Preprint.objects.filter(preprint_doi=pdoi)
                     print(preprint)
-                    if not preprint or len(preprint) != 1:
+                    if not preprint:
                         self.stdout.write(self.style.ERROR(f'ERROR preprint not found: {pdoi}'))
                         notfound_errors += 1
                         continue
+
+                    if len(preprint) != 1:
+                        self.stdout.write(self.style.ERROR(f'ERROR preprint not found: {pdoi}'))
+                        multipleresults_errors += 1
+                        continue
+
                     if preprint[0].doi:
                         self.stdout.write(self.style.NOTICE(f"Skipping because publisher DOI already exists for {pdoi}"))
                         alreadyexists_count += 1
                         continue
+
+                    # Check for presence of osf.io and ssrn as per requirement in PUBD 229
                     if 'osf.io' in jdoi or 'ssrn' in jdoi:
                         self.stdout.write(self.style.NOTICE(f"Skipping because journal DOI has specific strings for {pdoi}"))
                         specialstring_count += 1
@@ -70,6 +79,8 @@ class Command(BaseCommand):
         if notfound_errors > 0:
             self.stdout.write(self.style.ERROR(f"{notfound_errors} preprint(s) not found."))
 
+        if multipleresults_errors > 0:
+            self.stdout.write(self.style.ERROR(f"{multipleresults_errors} preprint doi(s) had multiple matching preprints."))
         if alreadyexists_count > 0:
             self.stdout.write(self.style.NOTICE(f'Publisher doi already exists and hence skipped {alreadyexists_count}.'))
         
