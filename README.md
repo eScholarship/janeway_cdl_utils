@@ -19,6 +19,8 @@ A janeway plugin that contains management commands used by cdl staff
 * `push_db_metrics (--profile <aws_profile_name>)` - Pushes current journal, article and file counts to AWS CloudWatch metrics.  You may optionally provide a profile name or if you are using an IAM role you can add it in the settings file as METRICS_ROLE.
 * `push_sentry_metrics (--profile <aws_profile_name> --daysago <number>)` - Push the average transaction time for a 24 hour period by default the previous 24 hour period but you may optionally provide a number of days ago to push previous data.  AWS authentication is the same as for `push_db_metrics`.
 
+* `add_publisherdoi_by_preprintdoi <import_file>` - Add published dois to preprints by preprint dois. The import file is expected to be a comma separated csv with the heading: `journal DOI, preprint DOI`. The dois in the import file are expected to start with `https://doi.org`.
+
 ## Tests
 
 The test suite can be run in the context of a janeway development environment.  The general command (assuming the plugin is installed in a directory called 'cdl_utils'):
