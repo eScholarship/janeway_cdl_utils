@@ -8,6 +8,7 @@ from django.contrib.contenttypes.models import ContentType
 from utils.models import LogEntry
 from submission.models import Article
 
+from bs4 import BeautifulSoup
 
 class Command(BaseCommand):
     """Backfills review assignment comments to a given journal"""
@@ -37,6 +38,10 @@ class Command(BaseCommand):
     # Extract id list from the OJS API
     def get_ids(self, s):
         return [x["source_record_key"].split(":")[-1] for x in json.loads(s)]
+
+    def strip_html(self, value):
+        soup = BeautifulSoup(value, 'html.parser')
+        return soup.get_text(separator="\n")
 
     def handle(self, *args, **options):
         code = options.get("journal_code")[:24]
@@ -86,12 +91,12 @@ class Command(BaseCommand):
                                 # the first item that is not visible to the author goes into comments_for_editor
                                 # else they go in a form answer marked as author_can_see=False
                                 if not c["visible_to_author"] and (not r.comments_for_editor or len(r.comments_for_editor) == 0):
-                                    r.comments_for_editor = c["comments"]
+                                    r.comments_for_editor = self.strip_html(c["comments"])
                                 else:
                                     answer = ReviewAssignmentAnswer.objects.create(assignment=r,
                                                                                    original_element=form_element,
                                                                                    author_can_see=c["visible_to_author"],
-                                                                                   answer=c["comments"])
+                                                                                   answer=self.strip_html(c["comments"]))
                                     form_element.snapshot(answer)
 
                             r.save()
