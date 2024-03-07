@@ -1,10 +1,12 @@
 from django.core.management.base import BaseCommand, CommandError
+from django.contrib.contenttypes.models import ContentType
+from django.conf import settings
 
 from journal.models import Journal
 from core.models import File
-import os
-from django.conf import settings
+from utils.models import LogEntry
 
+import os
 from .boolean_input import *
 
 class Command(BaseCommand):
@@ -73,7 +75,12 @@ class Command(BaseCommand):
                     os.unlink(aux_dir)
             else:
                 print(f'No aux dir {aux_dir} found.')
+            content_type = ContentType.objects.get_for_model(a)
+            log_entries = LogEntry.objects.filter(content_type=content_type, object_id=a.pk)
+            print(f"\tDelete {log_entries.count()} log entries")
+            print(f"\tDelete {a}")
             if delete:
+                log_entries.delete()
                 a.delete()
         if delete:
             print(f'Deleting journal {j.name}')
