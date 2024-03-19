@@ -44,16 +44,19 @@ class Command(BaseCommand):
         return soup.get_text(separator="\n")
 
     def handle(self, *args, **options):
-        code = options.get("journal_code")[:24]
+        ojs_code = options.get("journal_code")
+        jcode = ojs_code[:24]
         server = options.get("ojs_server")
 
         ojs_url = f"https://pub-submit2-{server}.escholarship.org/ojs/index.php/pages/jt/api/journals"
 
-        if not Journal.objects.filter(code=code).exists():
-            raise CommandError(f'Journal does not exist {code}')
+        if not Journal.objects.filter(code=jcode).exists():
+            raise CommandError(f'Journal does not exist {jcode}')
 
-        journal = Journal.objects.get(code=code)
+        journal = Journal.objects.get(code=jcode)
+        # get default form that is created for each journal
         default_form = ReviewForm.objects.get(journal=journal, name="Default Form")
+        # There is only one element to connect responses to
         form_element = default_form.elements.all()[0]
 
         # First, set the form to the default form for all Review Assignments
@@ -66,7 +69,7 @@ class Command(BaseCommand):
         # Look for review comments for each article in this journal
         for article in Article.objects.filter(journal=journal):
             ojs_id = self.get_ojs_id(article)
-            round_url = f"{ojs_url}/{code}/articles/{ojs_id}/rounds"
+            round_url = f"{ojs_url}/{ojs_code}/articles/{ojs_id}/rounds"
             rounds = self.get_ids(requests.get(round_url).text)
             for r in rounds:
                 assignments_url = f"{round_url}/{r}/assignments"
