@@ -35,13 +35,20 @@ class Command(BaseCommand):
 
         return None
 
-    # Extract id list from the OJS API
-    def get_ids(self, s):
-        return [x["source_record_key"].split(":")[-1] for x in json.loads(s)]
-
     def strip_html(self, value):
         soup = BeautifulSoup(value, 'html.parser')
         return soup.get_text(separator="\n")
+
+    def get_url_json(url):
+        response = requests.get(url)
+        if response.status_code != 200:
+            raise CommandError(f"Get {url} failed with code {response.status_code}")
+        return json.loads(response.text)
+
+    # Extract id list from the OJS API
+    def get_ids(self, url):
+        data = self.get_url_json(url)
+        return [x["source_record_key"].split(":")[-1] for x in data]
 
     def handle(self, *args, **options):
         ojs_code = options.get("journal_code")
@@ -71,12 +78,12 @@ class Command(BaseCommand):
             ojs_id = self.get_ojs_id(article)
             round_url = f"{ojs_url}/{ojs_code}/articles/{ojs_id}/rounds"
             try:
-                rounds = self.get_ids(requests.get(round_url).text)
+                rounds = self.get_ids(round_url)
                 for r in rounds:
                     assignments_url = f"{round_url}/{r}/assignments"
-                    assignments = self.get_ids(requests.get(assignments_url).text)
+                    assignments = self.get_ids(assignments_url)
                     for a_id in assignments:
-                        assignment = json.loads(requests.get(f"{assignments_url}/{a_id}").text)
+                        assignment = self.get_url_json(f"{assignments_url}/{a_id}")
                         # only try and find the matching review assignment if there are
                         # comments to place
                         if len(assignment["comments"]) > 0:
