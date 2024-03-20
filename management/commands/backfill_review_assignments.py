@@ -15,12 +15,10 @@ class Command(BaseCommand):
     help = "Backfills review assignment comments to a given journal"
 
     def add_arguments(self, parser):
-        parser.add_argument(
-            "journal_code", help="`code` of the journal to add arks", type=str
-        )
-        parser.add_argument(
-            "ojs_server", help="which server to read from dev/stg/prd", type=str
-        )
+        parser.add_argument("journal_code", help="`code` of the journal to add arks", type=str)
+        parser.add_argument("ojs_server", help="which server to read from dev/stg/prd", type=str)
+        parser.add_argument("-u", "--username", help="optional - username for basic auth", type=str)
+        parser.add_argument("-p", "--password", help="optional - password for basic auth", type=str)
 
     # Get the article OJS id from the import log
     def get_ojs_id(self, article):
@@ -39,21 +37,34 @@ class Command(BaseCommand):
         soup = BeautifulSoup(value, 'html.parser')
         return soup.get_text(separator="\n")
 
-    def get_url_json(url):
-        response = requests.get(url)
+    def get_url_json(self, url, auth):
+        print(url)
+        if auth:
+            response = requests.get(url, auth=auth)
+        else:
+            response = requests.get(url)
         if response.status_code != 200:
             raise CommandError(f"Get {url} failed with code {response.status_code}")
         return json.loads(response.text)
 
     # Extract id list from the OJS API
-    def get_ids(self, url):
-        data = self.get_url_json(url)
+    def get_ids(self, url, auth):
+        data = self.get_url_json(url, auth)
         return [x["source_record_key"].split(":")[-1] for x in data]
 
     def handle(self, *args, **options):
         ojs_code = options.get("journal_code")
         jcode = ojs_code[:24]
         server = options.get("ojs_server")
+        username = options.get("username", False)
+        password = options.get("password", False)
+
+        if (username and not password) or (password and not username):
+            raise CommandError("Username and password are required for basic auth")
+        elif username and password:
+            auth = (username, password)
+        else:
+            auth = False
 
         ojs_url = f"https://pub-submit2-{server}.escholarship.org/ojs/index.php/pages/jt/api/journals"
 
@@ -78,17 +89,17 @@ class Command(BaseCommand):
             ojs_id = self.get_ojs_id(article)
             round_url = f"{ojs_url}/{ojs_code}/articles/{ojs_id}/rounds"
             try:
-                rounds = self.get_ids(round_url)
+                rounds = self.get_ids(round_url, auth)
                 for r in rounds:
                     assignments_url = f"{round_url}/{r}/assignments"
-                    assignments = self.get_ids(assignments_url)
+                    assignments = self.get_ids(assignments_url, auth)
                     for a_id in assignments:
-                        assignment = self.get_url_json(f"{assignments_url}/{a_id}")
+                        assignment = self.get_url_json(f"{assignments_url}/{a_id}", auth)
                         # only try and find the matching review assignment if there are
                         # comments to place
                         if len(assignment["comments"]) > 0:
                             # some assignments have the exact same date requested but I haven't found any that also have the exact date completed
-                            ra = ReviewAssignment.objects.filter(date_requested=assignment["date_assigned"], date_complete=assignment["date_completed"])
+                            ra = ReviewAssignment.objects.filter(article=article, date_requested=assignment["date_assigned"], date_complete=assignment["date_completed"])
                             # if the above doesn't produce a unique assignment report an error
                             if ra.count() > 1:
                                 print(f"ERROR: found multiple assignments {ra}")
@@ -99,6 +110,7 @@ class Command(BaseCommand):
                             else:
                                 r = ra[0]
                                 for c in assignment["comments"]:
+                                    print(f"Adding comment to {r}")
                                     # the first item that is not visible to the author goes into comments_for_editor
                                     # else they go in a form answer marked as author_can_see=False
                                     if not c["visible_to_author"] and (not r.comments_for_editor or len(r.comments_for_editor) == 0):
