@@ -53,8 +53,7 @@ class Command(BaseCommand):
         return [x["source_record_key"].split(":")[-1] for x in data]
 
     def handle(self, *args, **options):
-        ojs_code = options.get("journal_code")
-        jcode = ojs_code[:24]
+        code = options.get("journal_code")
         server = options.get("ojs_server")
         username = options.get("username", False)
         password = options.get("password", False)
@@ -68,10 +67,10 @@ class Command(BaseCommand):
 
         ojs_url = f"https://pub-submit2-{server}.escholarship.org/ojs/index.php/pages/jt/api/journals"
 
-        if not Journal.objects.filter(code=jcode).exists():
-            raise CommandError(f'Journal does not exist {jcode}')
+        if not Journal.objects.filter(code=code).exists():
+            raise CommandError(f'Journal does not exist {code}')
 
-        journal = Journal.objects.get(code=jcode)
+        journal = Journal.objects.get(code=code)
         # get default form that is created for each journal
         default_form = ReviewForm.objects.get(journal=journal, name="Default Form")
         # There is only one element to connect responses to
@@ -87,7 +86,7 @@ class Command(BaseCommand):
         # Look for review comments for each article in this journal
         for article in Article.objects.filter(journal=journal):
             ojs_id = self.get_ojs_id(article)
-            round_url = f"{ojs_url}/{ojs_code}/articles/{ojs_id}/rounds"
+            round_url = f"{ojs_url}/{code}/articles/{ojs_id}/rounds"
             try:
                 rounds = self.get_ids(round_url, auth)
                 for r in rounds:
