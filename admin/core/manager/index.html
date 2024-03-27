@@ -1,0 +1,231 @@
+{% extends "admin/core/base.html" %}
+
+{% comment %}
+purpose: template override to address PUBD-1250
+copied from: src/templates/admin/core/manager/index.html
+commit hash: 97ea2a325 (HEAD -> cdl-v1.5.1-RC-6, tag: v1.5.1-RC-6, eschol/cdl-v1.5.1-RC-6) Merge pull request #4044 from BirkbeckCTP/pandoc-3-bugfix
+raw url: https://raw.githubusercontent.com/BirkbeckCTP/janeway/97ea2a325/src/templates/admin/core/manager/index.html
+{% endcomment %}
+
+{% block title %}Manager{% endblock title %}
+{% block title-section %}Manager{% endblock %}
+{% block title-sub %}Account{% endblock %}
+
+{% block breadcrumbs %}
+    {{ block.super }}
+    <li><a href="{% url 'core_manager_index' %}">Manager</a></li>
+{% endblock %}
+
+
+{% block body %}
+    <section>
+    <div class="row expanded" data-equalizer>
+        <div class="large-3 columns end">
+            <div class="box" data-equalizer-watch>
+							  <div class="title-area">
+                    <h2>Journal Settings</h2>
+                </div>
+                <div class="content">
+                    <div class="button-group stacked">
+                        <a class="button" href="{% url 'core_edit_settings_group' "journal" %}">General</a>
+			{% if request.user.is_admin %}
+                        <a class="button" href="{% url 'home_settings_index' %}">Home Page</a>
+                        <a class="button" href="{% url 'core_edit_settings_group' "images" %}">Images</a>
+                        <a class="button" href="{% url 'core_edit_settings_group' "styling" %}">Styling</a>
+			{% endif%}
+                        <a class="button" href="{% url 'core_settings_index' %}">All Settings</a>
+                    </div>
+                </div>
+
+                <div class="title-area">
+                    <h2>Review</h2>
+                </div>
+                <div class="content">
+                    <div class="button-group stacked">
+                        <a class="button" href="{% url 'core_edit_settings_group' "review" %}">Review Settings</a>
+                        <a class="button" href="{% url 'review_review_forms' %}">Review Forms</a>
+                    </div>
+                </div>
+
+                <div class="title-area">
+                    <h2>Submission</h2>
+                </div>
+
+                <div class="content">
+                    <div class="button-group stacked">
+                        <a class="button" href="{% url 'core_edit_settings_group' "submission" %}">Submission Settings</a>
+                        <a class="button" href="{% url 'submission_configurator' %}">Submission Fields Configurator</a>
+                        <a class="button" href="{% url 'submission_fields' %}">Additional Submission Fields</a>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="large-3 columns end">
+            <div class="box" data-equalizer-watch>
+                <div class="title-area">
+                    <h2>Workflow Setup</h2>
+                </div>
+                <div class="content">
+                    <div class="button-group stacked">
+                        <a class="button" href="{% url 'core_edit_settings_group' "proofing" %}">Proofing Settings</a>
+                    </div>
+                </div>
+                <div class="title-area">
+                    <h2>Content</h2>
+                </div>
+                <div class="content">
+                    <div class="button-group stacked">
+			{% if request.user.is_admin %}
+                        <a class="button" href="{% url 'cms_index' %}">Content Manager</a>
+                        <a class="button" href="{% url 'cms_file_list' %}">Media Files</a>
+			{% endif %}
+                        <a class="button" href="{% url 'cms_submission_items' %}">Submission Page Items</a>
+                        <a class="button" href="{% url 'core_journal_contacts' %}">Journal Contacts</a>
+			{% if request.user.is_admin %}
+                        <a class="button" href="{% url 'core_editorial_team' %}">Editorial Team</a>
+			{% endif %}
+                    </div>
+                </div>
+
+                <div class="title-area">
+                    <h2>News</h2>
+                </div>
+                <div class="content">
+                    <div class="button-group stacked">
+		        {% if request.user.is_admin %}
+                        <a class="button" href="{% url 'core_edit_settings_group' "news" %}">News Settings</a>
+                        <a class="button" href="{% url 'core_manager_news' %}">News Manager</a>
+		        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <div class="large-3 columns end">
+            <div class="box" data-equalizer-watch>
+                <div class="title-area">
+                    <h2>Articles & Issues</h2>
+                </div>
+                <div class="content">
+                    <div class="button-group stacked">
+			{% if request.user.is_admin %}
+                        <a class="button" href="{% url 'core_edit_settings_group' 'article' %}">Article Display</a>
+                        <a class="button" href="{% url 'core_article_images' %}">Article Images Manager</a>
+			{% endif %}
+                        <a class="button" href="{% url 'manage_issues' %}">Issue Manager</a>
+                        <a class="button" href="{% url 'core_manager_sections' %}">Sections (Article Types)</a>
+			{% if request.user.is_admin %}
+                        <a class="button" href="{% url 'submission_licenses' %}">Licence Manager</a>
+			{% endif %}
+                    </div>
+                </div>
+
+                <div class="title-area">
+                    <h2>Identifiers</h2>
+                </div>
+                <div class="content">
+                    <div class="button-group stacked">
+		        {% if request.user.is_admin %}
+                        <a class="button" href="{% url 'journal_identifier_manager' %}">DOI Manager (Beta)</a>
+                        <a class="button" href="{% url 'core_edit_settings_group' "crossref" %}">Crossref Settings</a>
+                        <a class="button" href="{% url 'core_edit_settings_group' "crosscheck" %}">Crosscheck Settings</a>
+		        {% endif %}
+                    </div>
+                </div>
+
+                <div class="title-area">
+                    <h2>Users</h2>
+                </div>
+                <div class="content">
+                    <div class="button-group stacked">
+                        <a class="button" href="{% url 'core_manager_users' %}">Enrolled Users</a>
+                        <a class="button" href="{% url 'core_manager_enrol_users' %}">Enrol Users</a>
+                        <a class="button" href="{% url 'core_manager_roles' %}">Roles</a>
+                        {% if request.user.is_staff %}<a class="button" href="{% url 'core_manager_inactive_users' %}">Inactive Users</a>{% endif %}
+                        {% if request.user.is_staff %}<a class="button" href="{% url 'core_logged_in_users' %}">Authenticated Users</a>{% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="large-3 columns end">
+            <div class="box" data-equalizer-watch>
+                <div class="title-area">
+                    <h2>Cache, Cron &amp; Emails</h2>
+                </div>
+                <div class="content">
+                    <div class="button-group stacked">
+			{% if request.user.is_admin %}
+                        <a class="button" href="{% url 'core_flush_cache' %}">Clear Cache</a>
+			{% endif %}
+                        <a class="button" href="{% url 'cron_reminders' %}">Scheduled Reminders</a>
+                        <a class="button" href="{% url 'core_email_templates' %}">Email Templates</a>
+                        <a class="button" href="{% url 'cron_readers' %}">Publication Notifications (Readers)</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row expanded">
+        <div class="large-12 columns">
+            <div class="box">
+                <div class="title-area">
+                    <h2>Latest Publications</h2>
+                </div>
+                <div class="content">
+                    <div class="table-scroll">
+                        <table id="latest-pubs scroll" class="small">
+                            <thead>
+                            <tr>
+                                <th width="50%">Title</th>
+                                <th>Views</th>
+                                <th>Downloads</th>
+                                <th>Publication Date</th>
+                                <th>Links</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for article in published_articles %}
+                                <tr>
+                                    <td>{{ article.safe_title }}</td>
+                                    <td>{{ article.metrics.views }}</td>
+                                    <td>{{ article.metrics.downloads }}</td>
+                                    <td>{{ article.date_published }}</td>
+                                    <td><h5><a href="https://www.facebook.com/share.php?p[url]={{ article.url }}"
+                                               target="_blank"><i class="fa fa-facebook"></i></a>
+                                        <a href="https://twitter.com/intent/tweet?text={{ article.title }} {{ article.url }}"
+                                           target="_blank"><i class="fa fa-twitter"></i></a>
+                                        <a href="https://plus.google.com/share?url={{ article.url }}"><i
+                                                class="fa fa-google-plus"></i></a>
+                                        <a href="https://www.linkedin.com/sharing/share-offsite?url={{ article.url }}"><i
+                                                class="fa fa-linkedin"></i></a></h5>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row expanded">
+        <div class="large-12 columns">
+            <div class="box">
+                <div class="title-area">
+                    <h2>Support</h2>
+                </div>
+                <div class="content">
+                    {{ support_message|safe }}
+                </div>
+            </div>
+        </div>
+    </div>
+    </section>
+{% endblock body %}
+
+{% block js %}
+    {% include "elements/datatables.html" with target="#latest-pubs" sort=2 %}
+{% endblock %}
