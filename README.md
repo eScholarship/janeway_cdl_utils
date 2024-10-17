@@ -2,6 +2,8 @@
 
 A janeway plugin that contains management commands used by cdl staff
 
+See also: [janeway_ezid_plugin](https://github.com/eScholarship/janeway_ezid_plugin)
+
 ## Management commands
 
 * `add_licenses_by_issue <journal_code> <import_file>` - Adds cc license information to a given journal from a jschol export. You can create the expected input file with the following query to the jschol DB `SELECT volume, issue, attrs->>'$.rights' as rights FROM issues WHERE unit_id = 'journal_code'`;
