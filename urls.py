@@ -1,8 +1,8 @@
-from django.conf.urls import url
+from django.urls import re_path
 
 from plugins.cdl_utils import views
 
 
 urlpatterns = [
-    url(r'^manager/$', views.cdl_utils_manager, name='cdl_utils_manager'),
+    re_path(r'^manager/$', views.cdl_utils_manager, name='cdl_utils_manager'),
 ]
