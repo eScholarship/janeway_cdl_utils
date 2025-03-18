@@ -13,7 +13,7 @@ class Command(BaseCommand):
         try:
             num_updated = (Account.objects
                 .filter(preferred_timezone__isnull=True)
-                .update("preferred_timezone","US/Pacific")
+                .update(preferred_timezone="US/Pacific")
             )
         except Exception as e:
             raise CommandError('Unable to set preferred_timezones for new users due to error\n %s' % e)
