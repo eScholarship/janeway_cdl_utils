@@ -34,7 +34,7 @@ In order to disable logins you can add the DisableLoginMiddleware to the middlew
 And add the disable login setting set to true:
 
 ```
-DISABLE_LOGIN = False
+DISABLE_LOGIN = True
 ```
 
 ## Tests
