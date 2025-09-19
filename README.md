@@ -23,6 +23,20 @@ See also: [janeway_ezid_plugin](https://github.com/eScholarship/janeway_ezid_plu
 
 * `add_publisherdoi_by_preprintdoi <import_file>` - Add published dois to preprints by preprint dois. The import file is expected to be a comma separated csv with the heading: `journal DOI, preprint DOI`. The dois in the import file are expected to start with `https://doi.org`.
 
+## Disable Login
+
+In order to disable logins you can add the DisableLoginMiddleware to the middleware section of the settings.
+
+```
+'plugins.cdl_utils.middleware.DisableLoginMiddleware',
+```
+
+And add the disable login setting set to true:
+
+```
+DISABLE_LOGIN = True
+```
+
 ## Tests
 
 The test suite can be run in the context of a janeway development environment.  The general command (assuming the plugin is installed in a directory called 'cdl_utils'):
