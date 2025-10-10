@@ -9,7 +9,7 @@ urlpatterns = [
     re_path(r'^manager/$', cdl_utils_manager, name='cdl_utils_manager'),
 ]
 
-if settings.DISABLE_LOGIN:
+if getattr(settings, 'DISABLE_LOGIN', False):
     urlpatterns.append(
         re_path(r'^login_disabled/$', LoginDisabledView.as_view(), name='login_disabled'),
     )
