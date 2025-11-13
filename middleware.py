@@ -8,7 +8,8 @@ class DisableLoginMiddleware:
 
     def __call__(self, request):
         if getattr(settings, 'DISABLE_LOGIN', False) and \
-           request.path in [reverse('core_login'), reverse('admin:login')]:
+           request.path in [reverse('core_login'), reverse('admin:login')] or \
+            "review/requests" in request.path:
             return HttpResponseRedirect(reverse('login_disabled'))
 
         response = self.get_response(request)
