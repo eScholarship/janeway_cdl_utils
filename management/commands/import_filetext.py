@@ -1,8 +1,8 @@
 import json
 
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import BaseCommand
 
-from core.models import PGFileText
+from core.models import PGFileText, File
 
 
 class Command(BaseCommand):
@@ -27,13 +27,15 @@ class Command(BaseCommand):
         with open(text_export, 'r') as f:
             file_texts_objs = json.load(f)
 
-        for obj in file_texts_objs:
-            if obj["model"] == "core.filetext":
-                file_obj_pk = relations[obj['pk']]
-
-                pg_filetext = PGFileText.objects.create(
-                    contents=obj["fields"]["contents"]
-                )
-                file_obj.text = pg_filetext
-                file_obj.save()
+            for obj in file_texts_objs:
+                if obj["model"] == "core.filetext":
+                    file_obj_pk = relations.get(str(obj['pk']), None)
+                    if file_obj_pk is not None and File.objects.filter(pk=file_obj_pk).exists():
+                        file_obj = File.objects.get(pk=file_obj_pk)
+                        if file_obj.text is None:
+                            pg_filetext = PGFileText.objects.create(
+                                contents=obj["fields"]["contents"]
+                            )
+                            file_obj.text = pg_filetext
+                            file_obj.save()
 

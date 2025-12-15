@@ -14,9 +14,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        # janeway journal codes are limited to 24 chars
-        # truncate it if the user doesn't
-        code = options.get("journal_code")[:24]
+        code = options.get("journal_code")
 
         if not Journal.objects.filter(code=code).exists():
             raise CommandError(f"No journal code = {code} found")
