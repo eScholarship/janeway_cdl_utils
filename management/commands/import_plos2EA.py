@@ -19,6 +19,7 @@ from datetime import datetime
 import traceback
 import sys
 import html
+import re
 
 PRESS_ID = 1
 REPO_ID = 1
@@ -489,14 +490,22 @@ class PreprintItem:
                 print("Adding data availability " + field.value)
                 repository_models.RepositoryFieldAnswer.objects.get_or_create(preprint_id=self.pp.id, field_id = DATA_ID, defaults={'answer': field.value})
 
+
     def addDatalinks(self):
         print("add data link")
         num = 1
         for field in self.importedInfo.customfields:
             if field.name == "data_availability_link":
-                print("Adding data link " + field.value)
-                repository_models.PreprintSupplementaryFile.objects.get_or_create(preprint_id=self.pp.id, url = field.value, defaults={'label':'Public data', 'order':num})
-                num += 1
+                num = self.saveUrls(field.value, num)
 
 
+    def saveUrls(self, fieldvalue, order):
+        # Regex pattern for http/https URLs
+        url_pattern = r'https?://[^\s]+'
+        urls = re.findall(url_pattern, fieldvalue)
+        for url in urls:
+            print("Adding data link " + url)
+            repository_models.PreprintSupplementaryFile.objects.get_or_create(preprint_id=self.pp.id, url = url, defaults={'label':'Public data', 'order':order})
+            order += 1
+        return order
 
