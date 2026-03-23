@@ -8,7 +8,7 @@ from django.core.files.base import ContentFile
 
 from core.models import Galley, Account
 from journal.models import Journal
-from submission.models import Article, FrozenAuthor
+from submission.models import Article, FrozenAuthor, Licence, Section
 from core.files import save_file_to_article
 
 class Command(BaseCommand):
@@ -74,11 +74,15 @@ class Command(BaseCommand):
  
  
     def import_item(self, j, row, makers_map, collaborators_map, owner):
+        license = Licence.objects.get(journal=j, short_name="Copyright")
+        section = Section.objects.get(journal=j, name=row["section"])
         a, _created = Article.objects.get_or_create(
             journal=j,
             title=row["title"],
             abstract=row["description"],
-            owner=owner
+            owner=owner,
+            license=license,
+            section=section
         )
         if row["id"] in collaborators_map:
             for c in collaborators_map[row["id"]]:
