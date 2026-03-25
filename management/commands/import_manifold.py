@@ -3,13 +3,16 @@ from django.core.management.base import BaseCommand, CommandError
 import csv
 import os
 from pathlib import Path
+from bs4 import BeautifulSoup
 
 from django.core.files.base import ContentFile
 
 from core.models import Galley, Account
 from journal.models import Journal
-from submission.models import Article, FrozenAuthor, Licence, Section
+from submission.models import Article, FrozenAuthor, Licence, Section, STAGE_PUBLISHED
 from core.files import save_file_to_article
+
+LANGUAGES = {"english": "eng", "portuguese": "por", "spanish": "spa", "french": "fra"}
 
 class Command(BaseCommand):
     help = "Command to import manifold items"
@@ -38,8 +41,7 @@ class Command(BaseCommand):
                 return l, import_path
         return None, None
 
-    def get_files(self, row, path):
-        lang, import_path = self.get_ingestion_dir(path, row["iid"])
+    def get_files(self, row, import_path):
         images = [x for x in import_path.iterdir() if x.suffix == ".gif"]
         html = [x for x in import_path.iterdir() if x.suffix == ".html"]
         if len(html) > 1:
@@ -51,7 +53,29 @@ class Command(BaseCommand):
             fobj = ContentFile(local_file.read(), name=path.name)
         return save_file_to_article(fobj, article, owner)
 
-    def import_files(self, item, html_path, image_paths, owner):
+    def fix_html(self, html_path):
+        with open(html_path, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+
+        soup = BeautifulSoup(html_content, 'html.parser')
+
+        for h in soup.find_all("h2"):
+            h.decompose()
+
+        soup.find("h3").name = "h1"
+
+        for tag in soup.find_all(["h3","h4"]):
+            level = int(tag.name[1])
+            tag.name = f"h{level-1}"
+            for strong in tag.find_all("strong"):
+                strong.unwrap()
+
+        with open(html_path, 'w', encoding='utf-8') as f:
+            f.write(str(soup))
+
+    def import_files(self, item, html_path, image_paths, owner, css_path):
+        css_file = self.get_file_obj(item, css_path, owner)
+        self.fix_html(html_path)
         html_file = self.get_file_obj(item, html_path, owner)
         html_file.is_galley = True
         html_file.label = "HTML"
@@ -64,6 +88,7 @@ class Command(BaseCommand):
             type="html",
             sequence=item.get_next_galley_sequence(),
             public=True,
+            css_file=css_file
         )
 
         for img_path in image_paths:
@@ -73,16 +98,18 @@ class Command(BaseCommand):
             g.images.add(img_file)
  
  
-    def import_item(self, j, row, makers_map, collaborators_map, owner):
+    def import_item(self, j, row, makers_map, collaborators_map, owner, lang):
         license = Licence.objects.get(journal=j, short_name="Copyright")
-        section = Section.objects.get(journal=j, name=row["section"])
+        section, _ = Section.objects.get_or_create(journal=j, name=row["section"])
         a, _created = Article.objects.get_or_create(
             journal=j,
             title=row["title"],
             abstract=row["description"],
             owner=owner,
             license=license,
-            section=section
+            section=section,
+            language=LANGUAGES[lang],
+            stage=STAGE_PUBLISHED
         )
         if row["id"] in collaborators_map:
             for c in collaborators_map[row["id"]]:
@@ -123,6 +150,7 @@ class Command(BaseCommand):
         with open(os.path.join(file_path, "test.csv"), mode='r', newline='') as f:
             r = csv.DictReader(f, delimiter="|")
             for row in r:
-                item = self.import_item(j, row, makers_map, collaborators_map, owner)
-                html_path, img_paths = self.get_files(row, Path(file_path))
-                self.import_files(item, html_path, img_paths, owner)
+                lang, import_path = self.get_ingestion_dir(Path(file_path), row["iid"])
+                item = self.import_item(j, row, makers_map, collaborators_map, owner, lang)
+                html_path, img_paths = self.get_files(row, import_path)
+                self.import_files(item, html_path, img_paths, owner, import_path.joinpath("md.css"))
