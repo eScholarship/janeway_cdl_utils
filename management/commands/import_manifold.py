@@ -4,6 +4,7 @@ import csv
 import os
 from pathlib import Path
 from bs4 import BeautifulSoup
+from datetime import datetime
 
 from django.core.files.base import ContentFile
 
@@ -59,11 +60,14 @@ class Command(BaseCommand):
 
         soup = BeautifulSoup(html_content, 'html.parser')
 
+        # Remove extraneous title header
         for h in soup.find_all("h2"):
             h.decompose()
 
+        # the first h3 header is the article title
         soup.find("h3").name = "h1"
 
+        # reduce the level of all the following headers
         for tag in soup.find_all(["h3","h4"]):
             level = int(tag.name[1])
             tag.name = f"h{level-1}"
@@ -96,11 +100,19 @@ class Command(BaseCommand):
             img_file.is_galley = False
             img_file.save()
             g.images.add(img_file)
+
+        item.render_galley = g
+        item.save()
  
  
     def import_item(self, j, row, makers_map, collaborators_map, owner, lang):
         license = Licence.objects.get(journal=j, short_name="Copyright")
         section, _ = Section.objects.get_or_create(journal=j, name=row["section"])
+        # created_at is the only date we seem to have
+        date_published = datetime.strptime(
+            row["created_at"],
+            "%Y-%m-%d %H:%M:%S.%f"
+        )
         a, _created = Article.objects.get_or_create(
             journal=j,
             title=row["title"],
@@ -109,7 +121,8 @@ class Command(BaseCommand):
             license=license,
             section=section,
             language=LANGUAGES[lang],
-            stage=STAGE_PUBLISHED
+            stage=STAGE_PUBLISHED,
+            date_published=date_published
         )
         if row["id"] in collaborators_map:
             for c in collaborators_map[row["id"]]:
