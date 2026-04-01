@@ -34,8 +34,8 @@ class Command(BaseCommand):
         )
         parser.add_argument(
            "--issue-id",
-           help="pk of the issue to import to"
-           type=int,
+           help="pk of the issue to import to",
+           type=int
         )
 
     def get_ingestion_dir(self, path, s):
@@ -54,10 +54,13 @@ class Command(BaseCommand):
             print(f"{row['iid']} multiple html files")
         return html[0], images
 
-    def get_file_obj(self, article, path, owner):
-        with open(path, 'rb') as local_file:
-            fobj = ContentFile(local_file.read(), name=path.name)
+    def get_file_obj_from_content(self, article, content, owner, filename):
+        fobj = ContentFile(content, name=filename)
         return save_file_to_article(fobj, article, owner)
+
+    def get_file_obj(self, item, path, owner):
+        with open(path, 'rb') as local_file:
+            return self.get_file_obj_from_content(item, local_file.read(), owner, path.name)
 
     def fix_html(self, html_path):
         with open(html_path, 'r', encoding='utf-8') as f:
@@ -79,13 +82,12 @@ class Command(BaseCommand):
             for strong in tag.find_all("strong"):
                 strong.unwrap()
 
-        with open(html_path, 'w', encoding='utf-8') as f:
-            f.write(str(soup))
+        return soup.prettify("utf-8")
 
     def import_files(self, item, html_path, image_paths, owner, css_path):
         css_file = self.get_file_obj(item, css_path, owner)
-        self.fix_html(html_path)
-        html_file = self.get_file_obj(item, html_path, owner)
+        html_content = self.fix_html(html_path)
+        html_file = self.get_file_obj_from_content(item, html_content, owner, html_path.name)
         html_file.is_galley = True
         html_file.label = "HTML"
         html_file.save()
