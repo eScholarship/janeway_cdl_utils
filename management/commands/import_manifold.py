@@ -9,7 +9,7 @@ from datetime import datetime
 from django.core.files.base import ContentFile
 
 from core.models import Galley, Account
-from journal.models import Journal
+from journal.models import Journal, Issue
 from submission.models import Article, FrozenAuthor, Licence, Section, STAGE_PUBLISHED
 from core.files import save_file_to_article
 
@@ -31,6 +31,11 @@ class Command(BaseCommand):
             "owner_id",
             help="pk of the owner",
             type=int
+        )
+        parser.add_argument(
+           "--issue-id",
+           help="pk of the issue to import to"
+           type=int,
         )
 
     def get_ingestion_dir(self, path, s):
@@ -142,9 +147,11 @@ class Command(BaseCommand):
         journal_code = options.get("journal_code")
         file_path = options.get("file_path")
         owner_id = options.get("owner_id")
+        issue_id = options.get("issue_id")
 
         j = Journal.objects.get(code=journal_code)
         owner = Account.objects.get(pk=owner_id)
+        issue = Issue.objects.get(pk=issue_id) if issue_id else None
 
         with open(os.path.join(file_path, "makers.csv"), mode='r', newline='') as f:
             r = csv.DictReader(f, delimiter="|")
@@ -165,5 +172,8 @@ class Command(BaseCommand):
             for row in r:
                 lang, import_path = self.get_ingestion_dir(Path(file_path), row["iid"])
                 item = self.import_item(j, row, makers_map, collaborators_map, owner, lang)
+                if issue:
+                    issue.articles.add(item)
+                    issue.save()
                 html_path, img_paths = self.get_files(row, import_path)
                 self.import_files(item, html_path, img_paths, owner, import_path.joinpath("md.css"))
