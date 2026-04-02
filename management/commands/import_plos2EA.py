@@ -469,7 +469,7 @@ class PreprintItem:
             # process all authors and return id of the corresponding one
             result_auth = repository_models.Author.objects.get_or_create(email_address=auth.email, defaults={'first_name':auth.fname, 'last_name': auth.lname, 'orcid':auth.orcid, 'affiliation':auth.affil})[0]
 
-            result_acc = core_models.Account.objects.get_or_create(email=auth.email, username=auth.email, defaults={'password':uuid4(), 'is_superuser': 0, 
+            result_acc = core_models.Account.objects.get_or_create(email=auth.email, defaults={'username': auth.email, 'password':uuid4(), 'is_superuser': 0, 
                                                                                                         'first_name':auth.fname, 'last_name':auth.lname, 'orcid':auth.orcid,
                                                                                                         'institution':auth.affil, 'is_active':0, 'is_staff':0, 'is_admin':0, 
                                                                                                         'enable_digest':0, 'enable_public_profile':0, 
