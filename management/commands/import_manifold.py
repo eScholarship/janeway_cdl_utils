@@ -7,6 +7,7 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 
 from django.core.files.base import ContentFile
+from django.utils import timezone
 
 from core.models import Galley, Account
 from journal.models import Journal, Issue
@@ -120,6 +121,7 @@ class Command(BaseCommand):
             row["created_at"],
             "%Y-%m-%d %H:%M:%S.%f"
         )
+        date_published.replace(tzinfo=timezone.get_current_timezone())
         a, _created = Article.objects.get_or_create(
             journal=j,
             title=row["title"],
@@ -169,13 +171,16 @@ class Command(BaseCommand):
                 else:
                     collaborators_map[item_id].append(row)
 
-        with open(os.path.join(file_path, "test.csv"), mode='r', newline='') as f:
+        with open(os.path.join(file_path, "texts.csv"), mode='r', newline='') as f:
             r = csv.DictReader(f, delimiter="|")
             for row in r:
                 lang, import_path = self.get_ingestion_dir(Path(file_path), row["iid"])
-                item = self.import_item(j, row, makers_map, collaborators_map, owner, lang)
-                if issue:
-                    issue.articles.add(item)
-                    issue.save()
-                html_path, img_paths = self.get_files(row, import_path)
-                self.import_files(item, html_path, img_paths, owner, import_path.joinpath("md.css"))
+                if import_path is not None:
+                    item = self.import_item(j, row, makers_map, collaborators_map, owner, lang)
+                    if issue:
+                        issue.articles.add(item)
+                        issue.save()
+                    html_path, img_paths = self.get_files(row, import_path)
+                    self.import_files(item, html_path, img_paths, owner, import_path.joinpath("md.css"))
+                else:
+                    print(f"Skipping: {row}")
