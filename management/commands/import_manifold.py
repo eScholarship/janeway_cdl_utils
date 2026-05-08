@@ -34,8 +34,23 @@ class Command(BaseCommand):
             type=int
         )
         parser.add_argument(
-           "--issue-id",
-           help="pk of the issue to import to",
+           "--eng",
+           help="pk of the issue to import english to",
+           type=int
+        )
+        parser.add_argument(
+           "--fra",
+           help="pk of the issue to import french to",
+           type=int
+        )
+        parser.add_argument(
+           "--por",
+           help="pk of the issue to import portuguese to",
+           type=int
+        )
+        parser.add_argument(
+           "--spa",
+           help="pk of the issue to import spanish to",
            type=int
         )
 
@@ -151,11 +166,17 @@ class Command(BaseCommand):
         journal_code = options.get("journal_code")
         file_path = options.get("file_path")
         owner_id = options.get("owner_id")
-        issue_id = options.get("issue_id")
+        eng_id = options.get("eng")
+        fra_id = options.get("fra")
+        por_id = options.get("por")
+        spa_id = options.get("esp")
 
         j = Journal.objects.get(code=journal_code)
         owner = Account.objects.get(pk=owner_id)
-        issue = Issue.objects.get(pk=issue_id) if issue_id else None
+        issues = {"eng": Issue.objects.get(pk=eng_id),
+                  "fra": Issue.objects.get(pk=fra_id),
+                  "por": Issue.objects.get(pk=por_id),
+                  "spa": Issue.objects.get(pk=spa_id)}
 
         with open(os.path.join(file_path, "makers.csv"), mode='r', newline='') as f:
             r = csv.DictReader(f, delimiter="|")
@@ -177,9 +198,8 @@ class Command(BaseCommand):
                 lang, import_path = self.get_ingestion_dir(Path(file_path), row["iid"])
                 if import_path is not None:
                     item = self.import_item(j, row, makers_map, collaborators_map, owner, lang)
-                    if issue:
-                        issue.articles.add(item)
-                        issue.save()
+                    issues[lang].articles.add(item)
+                    issues[lang].save()
                     html_path, img_paths = self.get_files(row, import_path)
                     self.import_files(item, html_path, img_paths, owner, import_path.joinpath("md.css"))
                 else:
