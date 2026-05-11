@@ -169,7 +169,7 @@ class Command(BaseCommand):
         eng_id = options.get("eng")
         fra_id = options.get("fra")
         por_id = options.get("por")
-        spa_id = options.get("esp")
+        spa_id = options.get("spa")
 
         j = Journal.objects.get(code=journal_code)
         owner = Account.objects.get(pk=owner_id)
