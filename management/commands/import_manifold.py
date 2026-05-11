@@ -173,10 +173,10 @@ class Command(BaseCommand):
 
         j = Journal.objects.get(code=journal_code)
         owner = Account.objects.get(pk=owner_id)
-        issues = {"eng": Issue.objects.get(pk=eng_id),
-                  "fra": Issue.objects.get(pk=fra_id),
-                  "por": Issue.objects.get(pk=por_id),
-                  "spa": Issue.objects.get(pk=spa_id)}
+        issues = {"english": Issue.objects.get(pk=eng_id),
+                  "french": Issue.objects.get(pk=fra_id),
+                  "portuguese": Issue.objects.get(pk=por_id),
+                  "spanish": Issue.objects.get(pk=spa_id)}
 
         with open(os.path.join(file_path, "makers.csv"), mode='r', newline='') as f:
             r = csv.DictReader(f, delimiter="|")
