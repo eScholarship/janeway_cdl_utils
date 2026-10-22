@@ -1,14 +1,41 @@
 """
 Management command: import a unit from a legacy MySQL database into Janeway.
 
-Place at: <some_app>/management/commands/import_legacy_unit.py
-(each of management/ and management/commands/ needs an __init__.py)
-
-Usage:
+Usage (live database):
     python manage.py import_legacy_unit my_unit_id \
         --db-name legacy --db-user reader --db-password secret \
         --assets-url-prefix https://my-bucket.s3.amazonaws.com/assets/ --dry-run
+
+Usage (export files instead of a live database):
+    python manage.py import_legacy_unit my_unit_id \
+        --units-file units.tsv --pages-file pages.tsv --widgets-file widgets.tsv \
+        --assets-url-prefix https://my-bucket.s3.amazonaws.com/assets/ --dry-run
+
+Export files
+------------
+Each file holds the *whole* table (rows for other units are ignored; rows are
+matched on units.id / pages.unit_id / widgets.unit_id). Supported formats,
+chosen by file extension:
+
+    .tsv / .txt     tab-separated. Default dialect "mysql" understands the escaping
+                    used by `mysql -B` and SELECT ... INTO OUTFILE (\\n, \\t, \\\\, \\0
+                    and NULL / \\N). Use --tsv-dialect plain for unescaped TSV.
+    .csv            comma-separated, standard quoting (\\N is read as NULL).
+    .json / .jsonl  a JSON array of row objects, or one JSON object per line.
+
+CSV/TSV files need a header row naming the columns. If yours has none (e.g.
+exported with `mysql -N`), pass the column names with --units-columns /
+--pages-columns / --widgets-columns (comma-separated, in file order).
+
+Columns the command reads:
+    units    id, attrs
+    pages    unit_id, slug, name, title, attrs
+    widgets  unit_id, id, kind, ordering, region, attrs
+(`attrs` holds JSON text.)  --units-file is required; the pages and widgets
+files are optional (without them pages / widgets are simply not migrated).
 """
+import csv
+import io
 import json
 import mimetypes
 import os
@@ -34,10 +61,21 @@ from utils.setting_handler import save_plugin_setting, save_setting
 LEGACY_ALIAS = "legacy"
 ASSET_TIMEOUT = 30  # seconds
 
-# Parameterised (never string-format user input into SQL).
 JOURNAL_Q = "SELECT * FROM units WHERE id = %s"
 PAGE_Q = "SELECT * FROM pages WHERE unit_id = %s"
-WIDGET_Q = "SELECT * FROM widgets WHERE unit_id = %s"  # not used yet
+WIDGET_Q = "SELECT * FROM widgets WHERE unit_id = %s"
+
+# Each legacy table: the query used against a live DB, the column that holds the
+# unit id (used to filter export files), and the columns we need to find in an export.
+TABLES = {
+    "units": {"sql": JOURNAL_Q, "key": "id", "required": ["id", "attrs"]},
+    "pages": {"sql": PAGE_Q, "key": "unit_id", "required": ["unit_id", "slug"]},
+    "widgets": {
+        "sql": WIDGET_Q,
+        "key": "unit_id",
+        "required": ["unit_id", "id", "kind", "ordering"],
+    },
+}
 
 # "type": "bool" -> stored as "on" / ""; anything else is stored as a string.
 # Settings with no "default" are skipped when the source attr is missing.
@@ -51,7 +89,7 @@ SETTING_MAP = [
     },
     {
         "attr": "doaj",
-        "group": "plugin:doaj",
+        "group": "plugin",
         "setting": "doaj_publish_push",
         "type": "bool",
         "default": "off",
@@ -91,20 +129,144 @@ def to_setting_value(spec, raw):
     return "" if raw is None else str(raw)
 
 
+# --------------------------------------------------------------------------- #
+# Export-file readers (no Django / database access)
+# --------------------------------------------------------------------------- #
+_MYSQL_ESCAPES = {"\\": "\\", "n": "\n", "t": "\t", "0": "\0"}
+
+
+def _unescape_mysql(value):
+    """Undo the escaping done by `mysql -B` / INTO OUTFILE."""
+    if "\\" not in value:
+        return value
+    out, i = [], 0
+    while i < len(value):
+        ch = value[i]
+        if ch == "\\" and i + 1 < len(value) and value[i + 1] in _MYSQL_ESCAPES:
+            out.append(_MYSQL_ESCAPES[value[i + 1]])
+            i += 2
+        else:
+            out.append(ch)
+            i += 1
+    return "".join(out)
+
+
+def _mysql_cell(raw):
+    if raw in ("NULL", "\\N"):
+        return None
+    cell = _unescape_mysql(raw)
+    # If unescaping broke a JSON value but the raw text is valid JSON, the file
+    # wasn't mysql-escaped after all; keep the raw text.
+    if cell != raw and cell[:1] in ("{", "["):
+        try:
+            json.loads(cell)
+        except ValueError:
+            try:
+                json.loads(raw)
+                return raw
+            except ValueError:
+                pass
+    return cell
+
+
+def _load_json_rows(text, path):
+    try:
+        data = json.loads(text)
+    except ValueError:  # not one JSON document -> JSON Lines
+        data = []
+        for lineno, line in enumerate(text.split("\n"), start=1):
+            if line.strip():
+                try:
+                    data.append(json.loads(line))
+                except ValueError as exc:
+                    raise CommandError(f"{path}:{lineno}: invalid JSON: {exc}")
+    if isinstance(data, dict):
+        data = [data]
+    if not isinstance(data, list) or not all(isinstance(r, dict) for r in data):
+        raise CommandError(f"{path}: expected a JSON array of objects (or one object per line).")
+    return data
+
+
+def load_export_file(path, columns=None, dialect="mysql"):
+    """Read an export file into a list of {column: value} dicts.
+
+    columns: names to use when the file has no header row.
+    dialect: "mysql" (unescape mysql output, NULL -> None) or "plain" (TSV as-is).
+    """
+    try:
+        with open(path, encoding="utf-8-sig", newline="") as fh:
+            text = fh.read()
+    except OSError as exc:
+        raise CommandError(f"Cannot read {path}: {exc}")
+
+    ext = os.path.splitext(path)[1].lower()
+    if ext in (".json", ".jsonl", ".ndjson"):
+        return _load_json_rows(text, path)
+
+    if ext == ".csv":
+        records = [r for r in csv.reader(io.StringIO(text, newline="")) if r]
+        cell = lambda v: None if v == "\\N" else v  # noqa: E731
+    else:  # .tsv, .txt, anything else
+        # Split on "\n" only: str.splitlines() would also split on characters
+        # (U+2028, \x0b, ...) that can legitimately appear inside HTML content.
+        records = [ln.rstrip("\r").split("\t") for ln in text.split("\n") if ln.strip("\r")]
+        cell = _mysql_cell if dialect == "mysql" else (lambda v: v)
+
+    if not records:
+        return []
+    if columns:
+        header, body, first_row = list(columns), records, 1
+    else:
+        header, body, first_row = [h.strip() for h in records[0]], records[1:], 2
+
+    rows = []
+    for offset, rec in enumerate(body):
+        if len(rec) != len(header):
+            raise CommandError(
+                f"{path}: row {first_row + offset} has {len(rec)} columns, expected {len(header)} "
+                f"({', '.join(header)})."
+            )
+        rows.append({name: cell(value) for name, value in zip(header, rec)})
+    return rows
+
+
 class Command(BaseCommand):
-    help = "Migrate a unit (journal, pages, nav, settings) from a legacy MySQL DB into Janeway."
+    help = "Migrate a unit (journal, pages, nav, settings) from a legacy MySQL DB or export files into Janeway."
 
     def add_arguments(self, parser):
         parser.add_argument("unit_id", help="Legacy unit id; must equal the Janeway journal code.")
-        parser.add_argument("--db-name", required=True)
-        parser.add_argument("--db-host", default="localhost")
-        parser.add_argument("--db-port", default="3306")
-        parser.add_argument("--db-user", required=True)
-        parser.add_argument(
+
+        db = parser.add_argument_group("live legacy database")
+        db.add_argument("--db-name")
+        db.add_argument("--db-host", default="localhost")
+        db.add_argument("--db-port", default="3306")
+        db.add_argument("--db-user")
+        db.add_argument(
             "--db-password",
             default=os.environ.get("LEGACY_DB_PASSWORD", ""),
             help="Defaults to $LEGACY_DB_PASSWORD.",
         )
+
+        files = parser.add_argument_group(
+            "export files (alternative to a live database)",
+            "Whole-table exports in .tsv, .csv, .json or .jsonl format; see the module docstring.",
+        )
+        files.add_argument("--units-file", help="Export of the units table (enables file mode).")
+        files.add_argument("--pages-file", help="Export of the pages table (optional).")
+        files.add_argument("--widgets-file", help="Export of the widgets table (optional).")
+        for table in ("units", "pages", "widgets"):
+            files.add_argument(
+                f"--{table}-columns",
+                help=f"Comma-separated column names if the {table} file has no header row.",
+            )
+        files.add_argument(
+            "--tsv-dialect",
+            choices=["mysql", "plain"],
+            default="mysql",
+            help="mysql (default): undo `mysql -B` / INTO OUTFILE escaping and read NULL/\\N as null. "
+                 "plain: use TSV values exactly as written.",
+        )
+
         parser.add_argument(
             "--assets-url-prefix",
             help="URL prefix under which legacy assets are served from S3; an asset is "
@@ -124,7 +286,21 @@ class Command(BaseCommand):
         self.assets_url_prefix = opts["assets_url_prefix"]
         unit_id = opts["unit_id"]
 
-        self.configure_legacy_db(opts)
+        self.use_files = bool(opts["units_file"])
+        if self.use_files:
+            if opts["db_name"]:
+                raise CommandError(
+                    "Use either export files (--units-file ...) or a live database (--db-name ...), not both."
+                )
+            self.export_rows = self.load_exports(opts)
+        else:
+            if opts["pages_file"] or opts["widgets_file"]:
+                raise CommandError("--pages-file / --widgets-file require --units-file.")
+            if not (opts["db_name"] and opts["db_user"]):
+                raise CommandError(
+                    "Provide either --db-name and --db-user (live database) or --units-file (export files)."
+                )
+            self.configure_legacy_db(opts)
 
         try:
             with transaction.atomic():
@@ -133,13 +309,13 @@ class Command(BaseCommand):
                     transaction.set_rollback(True)
                     self.stdout.write(self.style.WARNING("Dry run: changes rolled back."))
         finally:
-            if LEGACY_ALIAS in connections.databases:
+            if not self.use_files and LEGACY_ALIAS in connections.databases:
                 connections[LEGACY_ALIAS].close()
 
         self.stdout.write(self.style.SUCCESS(f"Finished migrating unit {unit_id}."))
 
     # ------------------------------------------------------------------ #
-    # Legacy DB access
+    # Legacy data access: live DB or export files
     # ------------------------------------------------------------------ #
     def configure_legacy_db(self, opts):
         connections.databases[LEGACY_ALIAS] = {
@@ -158,6 +334,40 @@ class Command(BaseCommand):
             cols = [c[0] for c in cur.description]
             return [dict(zip(cols, row)) for row in cur.fetchall()]
 
+    def load_exports(self, opts):
+        """Read every supplied export file up front so format problems fail before any writes."""
+        tables = {}
+        for table, spec in TABLES.items():
+            path = opts[f"{table}_file"]
+            if not path:
+                self.stderr.write(self.style.WARNING(
+                    f"No --{table}-file given; {table} will not be migrated."
+                ))
+                continue
+            raw_columns = opts[f"{table}_columns"]
+            columns = [c.strip() for c in raw_columns.split(",") if c.strip()] if raw_columns else None
+            rows = load_export_file(path, columns=columns, dialect=opts["tsv_dialect"])
+
+            if rows:
+                missing = [c for c in spec["required"] if c not in rows[0]]
+                if missing:
+                    raise CommandError(
+                        f"{path}: missing column(s) {', '.join(missing)}; "
+                        f"found {', '.join(rows[0])}. "
+                        f"If the file has no header row, pass --{table}-columns."
+                    )
+            tables[table] = rows
+            self.stdout.write(f"Read {len(rows)} {table} rows from {path}.")
+        return tables
+
+    def fetch_table(self, table, unit_id):
+        """All rows of `table` belonging to this unit, from the live DB or the export files."""
+        spec = TABLES[table]
+        if not self.use_files:
+            return self.fetch(spec["sql"], [unit_id])
+        rows = self.export_rows.get(table) or []
+        return [r for r in rows if str(r.get(spec["key"])) == str(unit_id)]
+
     # ------------------------------------------------------------------ #
     # Migration steps
     # ------------------------------------------------------------------ #
@@ -168,9 +378,10 @@ class Command(BaseCommand):
             raise CommandError(f"No Janeway journal with code '{unit_id}'.")
         self.journal_ct = ContentType.objects.get_for_model(Journal)
 
-        rows = self.fetch(JOURNAL_Q, [unit_id])
+        rows = self.fetch_table("units", unit_id)
         if not rows:
-            raise CommandError(f"No unit with id '{unit_id}' in the legacy database.")
+            where = "in the units export file" if self.use_files else "in the legacy database"
+            raise CommandError(f"No unit with id '{unit_id}' {where}.")
         attrs = as_json(rows[0]["attrs"])
 
         self.migrate_journal(attrs)
@@ -276,7 +487,7 @@ class Command(BaseCommand):
                 )
 
     def migrate_pages(self, unit_id):
-        rows = self.fetch(PAGE_Q, [unit_id])
+        rows = self.fetch_table("pages", unit_id)
         for prow in rows:
             pattrs = as_json(prow.get("attrs"))
             Page.objects.update_or_create(
@@ -284,8 +495,9 @@ class Command(BaseCommand):
                 object_id=self.journal.pk,
                 name=prow["slug"],
                 defaults={
-                    "display_name": prow.get("title") or prow["name"],
+                    "display_name": prow.get("title") or prow.get("name") or prow["slug"],
                     "content": pattrs.get("html", ""),
+                    "is_draft": False,
                 },
             )
         self.stdout.write(f"Migrated {len(rows)} pages.")
@@ -294,12 +506,13 @@ class Command(BaseCommand):
     # Widgets -> homepage elements
     # ------------------------------------------------------------------ #
     def migrate_widgets(self, unit_id):
-        rows = self.fetch(WIDGET_Q, [unit_id])
+        rows = self.fetch_table("widgets", unit_id)
         count = 0
         seen_names = set()
         for wrow in rows:
             kind = wrow["kind"]
             wattrs = as_json(wrow.get("attrs"))
+            has_config = True
 
             if kind == "Text":
                 # NOTE: this setting is one value per journal, so a second
@@ -314,13 +527,9 @@ class Command(BaseCommand):
                 configure_url = "html_settings"
 
             elif kind == "RecentArticles":
-                carousel = self.get_carousel()
-                carousel.latest_articles = True
-                carousel.article_limit = 5
-                carousel.save()
-                template_path = "journal/homepage_elements/carousel.html"
-                configure_url = "carousel_settings"
-
+                template_path = "recent_articles/recent_articles.html"
+                configure_url = None
+                has_config = False
             elif kind == "Carousel":
                 carousel = self.get_carousel()
                 slides = wattrs.get("slides") or []
@@ -339,6 +548,7 @@ class Command(BaseCommand):
                     news_items.append(item)
                 carousel.news_articles.set(news_items)
                 carousel.news_limit = 5
+                carousel.mode = "mixed-selected"
                 carousel.save()
                 template_path = "journal/homepage_elements/carousel.html"
                 configure_url = "carousel_settings"
@@ -361,9 +571,10 @@ class Command(BaseCommand):
                 name=name,
                 defaults={
                     "template_path": template_path,
-                    "sequence": wrow["ordering"],
+                    # Export files give strings; the DB driver gives ints.
+                    "sequence": int(wrow["ordering"] or 0),
                     "configure_url": configure_url,
-                    "has_config": True,
+                    "has_config": has_config,
                     "active": True,
                 },
             )
@@ -427,7 +638,7 @@ class Command(BaseCommand):
                 **base,
                 defaults={
                     "page": page,
-                    "link": page.name,
+                    "link": f"{self.journal.code}/site/{page.name}/",
                     "is_external": False,
                     "has_sub_nav": False,
                     "sequence": sequence,
