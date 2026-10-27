@@ -27,6 +27,10 @@ CSV/TSV files need a header row naming the columns. If yours has none (e.g.
 exported with `mysql -N`), pass the column names with --units-columns /
 --pages-columns / --widgets-columns (comma-separated, in file order).
 
+mysql --defaults-extra-file=~/.passwords/jschol_ro_pw.mysql -e "SELECT * FROM units WHERE id = 'unit_id'" > /tmp/unit.tsv
+mysql --defaults-extra-file=~/.passwords/jschol_ro_pw.mysql -e "SELECT * FROM pages WHERE unit_id = 'unit_id'" > /tmp/pages.tsv
+mysql --defaults-extra-file=~/.passwords/jschol_ro_pw.mysql -e "SELECT * FROM widgets WHERE unit_id = 'unit_id'" > /tmp/widgets.tsv
+
 Columns the command reads:
     units    id, attrs
     pages    unit_id, slug, name, title, attrs
@@ -49,14 +53,17 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connections, transaction
 
-from cms.models import NavigationItem, Page
-from comms.models import NewsItem
-from core import files as core_files
-from core.models import HomepageElement
-from core.homepage_elements.carousel.models import Carousel
-from journal.models import Journal
-from plugins.health_dashboard.models import Category, JournalCategory
 from utils.setting_handler import save_plugin_setting, save_setting
+from core import files as core_files
+
+from cms.models import NavigationItem, Page, MediaFile
+from core.models import HomepageElement
+from journal.models import Journal
+
+from plugins.health_dashboard.models import Category, JournalCategory
+from plugins.simple_carousel.models import SimpleCarousel, SimpleCarouselSlide
+
+from core.homepage_elements.html import plugin_settings as html_plugin
 
 LEGACY_ALIAS = "legacy"
 ASSET_TIMEOUT = 30  # seconds
@@ -444,7 +451,7 @@ class Command(BaseCommand):
         ext = f".{image_type}" if image_type else ""
         return f"{asset_id[:16]}{ext}", data
 
-    def get_core_file(self, asset, label):
+    def get_media_file(self, asset, label):
         """Store a legacy asset as a Janeway core.File (what NewsItem.large_image_file needs).
 
         Returns None on dry runs or if the asset can't be read.
@@ -456,9 +463,12 @@ class Command(BaseCommand):
         upload = SimpleUploadedFile(
             name, data, content_type=mimetypes.guess_type(name)[0] or "application/octet-stream"
         )
-        # save_file_to_journal only reads request.journal / request.user.
-        fake_request = SimpleNamespace(journal=self.journal, user=None, press=None)
-        return core_files.save_file_to_journal(fake_request, upload, label, "")
+        f = MediaFile.objects.create(
+            label=label,
+            file=upload,
+            journal=self.journal
+        )
+        return f
 
     def migrate_category(self, attrs):
         if attrs.get("is_undergrad"):
@@ -518,7 +528,7 @@ class Command(BaseCommand):
                 # NOTE: this setting is one value per journal, so a second
                 # Text widget would overwrite the first.
                 save_plugin_setting(
-                    "homepage_element",
+                    html_plugin.get_self(),
                     "html_block_content",
                     wattrs.get("html", ""),
                     self.journal,
@@ -533,25 +543,18 @@ class Command(BaseCommand):
             elif kind == "Carousel":
                 carousel = self.get_carousel()
                 slides = wattrs.get("slides") or []
-                news_items = []
                 for seq, slide in enumerate(slides):
-                    defaults = {"body": slide.get("text", ""), "sequence": seq}
-                    image = self.get_core_file(slide.get("image"), slide.get("header", "Slide"))
-                    if image:
-                        defaults["large_image_file"] = image
-                    item, _ = NewsItem.objects.update_or_create(
-                        content_type=self.journal_ct,
-                        object_id=self.journal.pk,
-                        title=slide.get("header", f"Slide {seq + 1}"),
-                        defaults=defaults,
+                    header = slide.get("header", f"Slide {seq + 1}")
+                    defaults = {"text": slide.get("text", ""),
+                                "header": header,
+                                "image": self.get_media_file(slide.get("image"), header)}
+                    SimpleCarouselSlide.objects.update_or_create(
+                        carousel=carousel,
+                        order=seq,
+                        defaults=defaults
                     )
-                    news_items.append(item)
-                carousel.news_articles.set(news_items)
-                carousel.news_limit = 5
-                carousel.mode = "mixed-selected"
-                carousel.save()
-                template_path = "journal/homepage_elements/carousel.html"
-                configure_url = "carousel_settings"
+                template_path = "simple_carousel/simple_carousel.html"
+                configure_url = "simple_carousel_config"
 
             else:
                 self.stderr.write(
@@ -582,12 +585,8 @@ class Command(BaseCommand):
         self.stdout.write(f"Migrated {count} of {len(rows)} widgets.")
 
     def get_carousel(self):
-        """One carousel per journal, shared by RecentArticles and Carousel widgets."""
-        if self.journal.carousel is None:
-            self.journal.carousel = Carousel.objects.create()
-            self.journal.save()
-
-        return self.journal.carousel
+        c, _ = SimpleCarousel.objects.get_or_create(journal=self.journal)
+        return c
 
     # ------------------------------------------------------------------ #
     # Navigation
