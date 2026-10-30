@@ -43,7 +43,6 @@ import io
 import json
 import mimetypes
 import os
-from types import SimpleNamespace
 from urllib.error import URLError
 from urllib.request import urlopen
 
@@ -61,7 +60,7 @@ from core.models import HomepageElement
 from journal.models import Journal
 
 from plugins.health_dashboard.models import Category, JournalCategory
-from plugins.simple_carousel.models import SimpleCarousel, SimpleCarouselSlide
+from plugins.Media_carousel.models import MediaCarousel, MediaCarouselSlide
 
 from core.homepage_elements.html import plugin_settings as html_plugin
 
@@ -548,13 +547,13 @@ class Command(BaseCommand):
                     defaults = {"text": slide.get("text", ""),
                                 "header": header,
                                 "image": self.get_media_file(slide.get("image"), header)}
-                    SimpleCarouselSlide.objects.update_or_create(
+                    MediaCarouselSlide.objects.update_or_create(
                         carousel=carousel,
                         order=seq,
                         defaults=defaults
                     )
-                template_path = "simple_carousel/simple_carousel.html"
-                configure_url = "simple_carousel_config"
+                template_path = "media_carousel/media_carousel.html"
+                configure_url = "media_carousel_config"
 
             else:
                 self.stderr.write(
@@ -585,7 +584,7 @@ class Command(BaseCommand):
         self.stdout.write(f"Migrated {count} of {len(rows)} widgets.")
 
     def get_carousel(self):
-        c, _ = SimpleCarousel.objects.get_or_create(journal=self.journal)
+        c, _ = MediaCarousel.objects.get_or_create(journal=self.journal)
         return c
 
     # ------------------------------------------------------------------ #

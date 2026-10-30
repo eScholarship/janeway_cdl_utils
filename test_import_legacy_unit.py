@@ -26,7 +26,7 @@ from core.models import HomepageElement
 from journal.models import Journal
 from utils.testing import helpers
 
-from plugins.simple_carousel.models import SimpleCarouselSlide, SimpleCarousel
+from plugins.media_carousel.models import MediaCarouselSlide, MediaCarousel
 
 COMMAND_MODULE = "plugins.cdl_utils.management.commands.import_legacy_unit"
 M = importlib.import_module(COMMAND_MODULE)
@@ -411,8 +411,8 @@ class ImportLegacyUnitTests(TestCase):
         elements = {e.name: e for e in self.scoped(HomepageElement)}
         self.assertEqual(set(elements), {"Carousel", "Recent Articles"})
         self.assertEqual(elements["Carousel"].sequence, 0)
-        self.assertEqual(elements["Carousel"].template_path, "simple_carousel/simple_carousel.html")
-        self.assertEqual(elements["Carousel"].configure_url, "simple_carousel_config")
+        self.assertEqual(elements["Carousel"].template_path, "media_carousel/media_carousel.html")
+        self.assertEqual(elements["Carousel"].configure_url, "media_carousel_config")
         self.assertTrue(elements["Carousel"].has_config)
         self.assertEqual(elements["Recent Articles"].sequence, 2)
         self.assertEqual(elements["Recent Articles"].template_path, "recent_articles/recent_articles.html")
@@ -425,7 +425,7 @@ class ImportLegacyUnitTests(TestCase):
 
     def test_carousel_slides(self):
         self.run_command()
-        items = self.journal.simple_carousel.simplecarouselslide_set.all()
+        items = self.journal.media_carousel.mediacarouselslide_set.all()
         self.assertEqual([i.header for i in items], [s["header"] for s in SLIDES])
         self.assertEqual([i.order for i in items], [0, 1, 2, 3])
         self.assertIn("Currently looking for Editors", items[0].text)
@@ -433,8 +433,8 @@ class ImportLegacyUnitTests(TestCase):
     def test_carousel_slides(self):
         self.run_command()
         self.journal.refresh_from_db()
-        carousel = self.journal.simple_carousel
-        self.assertEqual(carousel.simplecarouselslide_set.count(), 4)
+        carousel = self.journal.media_carousel
+        self.assertEqual(carousel.mediacarouselslide_set.count(), 4)
 
     def test_text_widget_saves_html_block_from_attrs(self):
         self.widget_rows = [{"id": 1, "unit_id": UNIT_ID, "kind": "Text", "ordering": 0,
@@ -488,7 +488,7 @@ class ImportLegacyUnitTests(TestCase):
         with patch.object(M, "urlopen", make_urlopen({})):
             _, err = self.run_command("--assets-url-prefix", PREFIX)
         self.assertIn("Could not fetch", err)
-        self.assertEqual(self.journal.simple_carousel.simplecarouselslide_set.count(), 4)
+        self.assertEqual(self.journal.media_carousel.mediacarouselslide_set.count(), 4)
         self.assertEqual(self.scoped(Page).count(), 3)
 
     def test_dry_run_fetches_images_but_saves_nothing(self):
@@ -504,22 +504,22 @@ class ImportLegacyUnitTests(TestCase):
     def test_missing_prefix_does_not_abort_import(self):
         _, err = self.run_command()  # no --assets-url-prefix
         self.assertIn("--assets-url-prefix", err)
-        self.assertEqual(self.journal.simple_carousel.simplecarouselslide_set.count(), 4)
+        self.assertEqual(self.journal.media_carousel.mediacarouselslide_set.count(), 4)
 
     # -- idempotency / dry run -------------------------------------------- #
     def test_running_twice_creates_no_duplicates(self):
         self.run_command()
         counts = {m: self.scoped(m).count() for m in (Page, NavigationItem, HomepageElement)}
-        slide_count = SimpleCarouselSlide.objects.filter(carousel__journal=self.journal).count()
+        slide_count = MediaCarouselSlide.objects.filter(carousel__journal=self.journal).count()
         self.run_command()
         self.assertEqual(
             counts,
             {m: self.scoped(m).count() for m in (Page, NavigationItem, HomepageElement)},
         )
-        self.assertEqual(slide_count, SimpleCarouselSlide.objects.filter(carousel__journal=self.journal).count())
-        self.assertEqual(SimpleCarousel.objects.all().count(), 1)
+        self.assertEqual(slide_count, MediaCarouselSlide.objects.filter(carousel__journal=self.journal).count())
+        self.assertEqual(MediaCarousel.objects.all().count(), 1)
         self.journal.refresh_from_db()
-        self.assertIsNotNone(self.journal.simple_carousel)
+        self.assertIsNotNone(self.journal.media_carousel)
 
     def test_dry_run_rolls_back_everything(self):
         original_description = self.journal.description
@@ -527,7 +527,7 @@ class ImportLegacyUnitTests(TestCase):
         self.assertIn("Dry run", out)
         for model in (Page, NavigationItem, HomepageElement):
             self.assertEqual(self.scoped(model).count(), 0, model.__name__)
-        self.assertEqual(SimpleCarousel.objects.all().count(), 0)
-        self.assertEqual(SimpleCarouselSlide.objects.filter(carousel__journal=self.journal).count(), 0)
+        self.assertEqual(MediaCarousel.objects.all().count(), 0)
+        self.assertEqual(MediaCarouselSlide.objects.filter(carousel__journal=self.journal).count(), 0)
         self.journal.refresh_from_db()
         self.assertEqual(self.journal.description, original_description)
