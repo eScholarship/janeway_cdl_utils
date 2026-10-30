@@ -476,7 +476,6 @@ class ImportLegacyUnitTests(TestCase):
         self.assertEqual(fake.requested, [PREFIX + LOGO_ID] + [PREFIX + i for i in SLIDE_IDS])
         self.assertEqual(MediaFile.objects.filter(journal=self.journal).count(), 4)
         uploaded = [str(x) for x in MediaFile.objects.filter(journal=self.journal).values_list('file', flat=True)]
-        print(uploaded)
         self.assertEqual(
             uploaded,
             [f"journals/17/{SLIDE_IDS[0][:16]}.gif", f"journals/17/{SLIDE_IDS[1][:16]}.gif",

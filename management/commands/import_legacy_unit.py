@@ -60,7 +60,7 @@ from core.models import HomepageElement
 from journal.models import Journal
 
 from plugins.health_dashboard.models import Category, JournalCategory
-from plugins.Media_carousel.models import MediaCarousel, MediaCarouselSlide
+from plugins.media_carousel.models import MediaCarousel, MediaCarouselSlide
 
 from core.homepage_elements.html import plugin_settings as html_plugin
 
